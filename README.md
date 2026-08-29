@@ -78,15 +78,6 @@ See file `logo.svg` For the program logo
 
 ## 📝 License
 
-FreQ uses a **dual-license model**:
+This project is licensed under the **GNU General Public License v3.0** — see the [LICENSE](LICENSE) file for details.
 
-| License | Use | Cost |
-|---------|-----|------|
-| **GPL-3.0** | Personal, educational, non-commercial | **Free** |
-| **Commercial License** | Business, commercial, revenue-generating | **Paid** |
-
-See [LICENSE](LICENSE) for GPL-3.0 terms.
-See [COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md) for commercial terms.
-See [PRICING.md](PRICING.md) for pricing tiers.
-
-**TL;DR**: Use it for free at home. Pay if you use it to make money.
+You are free to use, modify, and distribute this software under the terms of GPL-3.0.
