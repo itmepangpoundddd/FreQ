@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.pyc
+*.pyd
+*.pyo
+*.so
+*.egg-info/
+
+# Build
+build/
+dist/
+*.spec
+*.bat
+compile_to_c.py
+
+# Compiled C
+.C/
+
+# Installer build artifacts
+Output/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Logs
+*.log
+
+# Temp
+*.tmp
+*.bak
