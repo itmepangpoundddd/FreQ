@@ -40,6 +40,21 @@ try:
 except ImportError:
     YT_DLP_AVAILABLE = False
 
+# Safe print: some consoles (e.g. Thai cp874) cannot encode emoji / unicode
+# in log lines — swallow encoding errors instead of crashing playback.
+import builtins as _builtins
+_original_print = _builtins.print
+
+
+def _safe_print(*args, **kwargs):
+    try:
+        _original_print(*args, **kwargs)
+    except (UnicodeEncodeError, ValueError, OSError):
+        pass
+
+
+_builtins.print = _safe_print
+
 
 def find_ffmpeg() -> Optional[str]:
     """Find ffmpeg location — checks PATH, common install dirs, and bundled location."""
@@ -56,6 +71,8 @@ def find_ffmpeg() -> Optional[str]:
             Path(r"C:\Program Files\ffmpeg\bin"),
             Path.home() / "Documents" / "yt-dlp",
             Path(__file__).parent / "ffmpeg",
+            Path(__file__).parent / "deps" / "ffmpeg-essentials",
+            Path(sys.executable).parent / "ffmpeg",
         ]
     else:
         candidates = [
@@ -68,6 +85,26 @@ def find_ffmpeg() -> Optional[str]:
         if d.is_dir() and (d / "ffmpeg.exe").exists():
             return str(d)
     return None
+
+
+def _ffmpeg_exe() -> str:
+    """Resolve the ffmpeg executable — bundled deps dir, install dir, or PATH."""
+    loc = find_ffmpeg()
+    if loc:
+        exe = Path(loc) / ("ffmpeg.exe" if sys.platform == "win32" else "ffmpeg")
+        if exe.exists():
+            return str(exe)
+    return "ffmpeg"
+
+
+def _ffprobe_exe() -> str:
+    """Resolve the ffprobe executable — bundled deps dir, install dir, or PATH."""
+    loc = find_ffmpeg()
+    if loc:
+        exe = Path(loc) / ("ffprobe.exe" if sys.platform == "win32" else "ffprobe")
+        if exe.exists():
+            return str(exe)
+    return "ffprobe"
 
 
 class AudioPlayer:
@@ -86,7 +123,9 @@ class AudioPlayer:
         self._duration: float = 0.0
         self._on_finish: Optional[Callable] = None
         self._progress_thread: Optional[threading.Thread] = None
-        self._stop_progress = False
+        # Each playback monitor gets its own cancellation event. A shared
+        # boolean can be reset by a new track before the old monitor exits.
+        self._progress_stop_event = threading.Event()
         self._callback_queue: list[tuple[Callable, tuple]] = []
         self._callback_lock = threading.Lock()
         # Seek state
@@ -317,8 +356,10 @@ class AudioPlayer:
             if self._is_playing and not self._is_paused:
                 try:
                     pygame.mixer.music.pause()
-                    self._is_paused = True
+                    # Capture the position BEFORE marking paused —
+                    # get_position() returns _pause_offset once paused.
                     self._pause_offset = self.get_position()
+                    self._is_paused = True
                 except Exception:
                     pass
 
@@ -338,7 +379,7 @@ class AudioPlayer:
         if not self.available:
             return
         with self._lock:
-            self._stop_progress = True
+            self._progress_stop_event.set()
             try:
                 pygame.mixer.music.stop()
             except Exception:
@@ -398,7 +439,7 @@ class AudioPlayer:
             seek_file = str(self._temp_dir / f"seek_{int(seconds * 1000)}.mp3")
 
             cmd = [
-                "ffmpeg", "-y",
+                _ffmpeg_exe(), "-y",
                 "-ss", str(seconds),
                 "-i", source,
                 "-c:a", "libmp3lame",
@@ -431,7 +472,7 @@ class AudioPlayer:
     def _do_seek(self, filepath: str, seek_seconds: float, duration: float) -> None:
         """Internal: reload playback from filepath with updated offset tracking."""
         was_paused = self._is_paused
-        self._stop_progress = True
+        self._progress_stop_event.set()
         try:
             pygame.mixer.music.stop()
         except Exception:
@@ -440,9 +481,11 @@ class AudioPlayer:
         try:
             pygame.mixer.music.load(filepath)
             pygame.mixer.music.play()
+            if was_paused:
+                pygame.mixer.music.pause()
             self._current_file = filepath
             self._is_playing = True
-            self._is_paused = False
+            self._is_paused = was_paused
             self._seek_offset = seek_seconds
             self._play_start_time = time.time()
             self._pause_offset = 0.0
@@ -460,7 +503,7 @@ class AudioPlayer:
         try:
             result = subprocess.run(
                 [
-                    "ffprobe", "-v", "error",
+                    _ffprobe_exe(), "-v", "error",
                     "-show_entries", "format=duration",
                     "-of", "default=noprint_wrappers=1:nokey=1",
                     self._current_file,
@@ -473,10 +516,10 @@ class AudioPlayer:
 
     @staticmethod
     def _ffmpeg_available() -> bool:
-        """Check if ffmpeg is available on PATH."""
+        """Check if ffmpeg is available (bundled, install dir, or PATH)."""
         try:
             result = subprocess.run(
-                ["ffmpeg", "-version"],
+                [_ffmpeg_exe(), "-version"],
                 capture_output=True, timeout=5,
             )
             return result.returncode == 0
@@ -515,18 +558,20 @@ class AudioPlayer:
     # ─────────────────────────────────────
     def _start_progress_monitor(self) -> None:
         """Monitor playback progress and auto-advance"""
-        if self._progress_thread and self._progress_thread.is_alive():
-            self._stop_progress = True
-            self._progress_thread.join(timeout=1)
-
-        self._stop_progress = False
+        # Signal the previous monitor, but do not wait while holding the
+        # playback lock. The previous monitor will exit on its own.
+        self._progress_stop_event.set()
+        stop_event = threading.Event()
+        self._progress_stop_event = stop_event
 
         def _monitor():
-            while not self._stop_progress:
-                time.sleep(0.5)
+            # pygame can briefly report False from get_busy() while a newly
+            # loaded file is being decoded. This matters most for short jingles.
+            started_at = time.monotonic()
+            while not stop_event.wait(0.25):
                 if not self._is_playing or self._is_paused:
                     continue
-                if not self.is_busy:
+                if not self.is_busy and time.monotonic() - started_at >= 0.5:
                     # Song finished
                     self._is_playing = False
                     self._is_paused = False

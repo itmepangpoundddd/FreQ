@@ -562,11 +562,13 @@ class NationalAnthem:
         self.config = AnthemSchedule()
         self._running = False
         self._thread: Optional[threading.Thread] = None
+        self._stop_event = threading.Event()
         self._play_callback: Optional[Callable] = None
         self._pause_callback: Optional[Callable] = None
         self._resume_callback: Optional[Callable] = None
         self._status_callback: Optional[Callable] = None
         self._last_played: dict[str, str] = {}  # {"morning": "2024-01-15", "evening": "2024-01-15"}
+        self._last_check_minute: int = -1       # minute-of-day of the last check (-1 = never)
 
     def set_callbacks(self, play: Callable = None, pause: Callable = None,
                      resume: Callable = None, status: Callable = None):
@@ -581,6 +583,7 @@ class NationalAnthem:
         if self._running:
             return
         self._running = True
+        self._stop_event.clear()
         self._thread = threading.Thread(target=self._run_loop, daemon=True)
         self._thread.start()
         self._log("Anthem scheduler started")
@@ -588,13 +591,14 @@ class NationalAnthem:
     def stop(self) -> None:
         """Stop the anthem scheduler."""
         self._running = False
+        self._stop_event.set()
         self._log("Anthem scheduler stopped")
 
     def _run_loop(self) -> None:
-        """Main scheduler loop — checks every 30 seconds."""
+        """Main scheduler loop — checks continuously once per second."""
         while self._running:
             self._check_times()
-            time.sleep(30)
+            self._stop_event.wait(1.0)
 
     @staticmethod
     def _normalize_time(t: str) -> str:
@@ -610,8 +614,30 @@ class NationalAnthem:
         except (ValueError, IndexError):
             return t
 
+    @staticmethod
+    def _time_to_minutes(t: str) -> Optional[int]:
+        """Convert 'HH:MM' to minutes-of-day, or None if invalid."""
+        if not t:
+            return None
+        try:
+            parts = t.split(":")
+            h = int(parts[0])
+            m = int(parts[1]) if len(parts) > 1 else 0
+        except (ValueError, IndexError):
+            return None
+        if not (0 <= h <= 23 and 0 <= m <= 59):
+            return None
+        return h * 60 + m
+
     def _check_times(self) -> None:
-        """Check if it's time to play the anthem."""
+        """Check if it's time to play the anthem.
+
+        The polling loop only runs every 30 seconds, so its tick can land at
+        any second of the target minute. Instead of an exact-minute match we
+        also allow a one-minute grace window (e.g. the app was started just
+        after 08:00, or a previous check was delayed). ``_last_played``
+        prevents double-firing, so each period plays at most once per day.
+        """
         if not self.config.enabled or not self.config.anthem_file:
             return
         if not os.path.isfile(self.config.anthem_file):
@@ -619,8 +645,9 @@ class NationalAnthem:
 
         import datetime
         now = datetime.datetime.now()
-        current_time = now.strftime("%H:%M")
-        current_second = now.second
+        now_minute = now.hour * 60 + now.minute
+        prev_minute = self._last_check_minute
+        self._last_check_minute = now_minute
         current_day = now.strftime("%a").lower()[:3]
         today = now.strftime("%Y-%m-%d")
 
@@ -628,24 +655,38 @@ class NationalAnthem:
         if current_day not in self.config.days:
             return
 
-        # Only trigger in the first 45 seconds of the target minute
-        # to avoid missing due to sleep jitter
-        if current_second > 45:
-            return
-
         # Normalize config times for comparison (handles '8:00' vs '08:00')
         morning = self._normalize_time(self.config.morning_time)
         evening = self._normalize_time(self.config.evening_time)
 
         # Check morning anthem
-        if current_time == morning:
-            if self._last_played.get("morning") != today:
-                self._play_anthem("morning")
+        if self._last_played.get("morning") != today:
+            target = self._time_to_minutes(morning)
+            if target is not None and (
+                now_minute == target
+                or (now_minute == target + 1 and prev_minute < target)
+            ):
+                self._trigger_anthem("morning")
 
         # Check evening anthem
-        if current_time == evening:
-            if self._last_played.get("evening") != today:
-                self._play_anthem("evening")
+        if self._last_played.get("evening") != today:
+            target = self._time_to_minutes(evening)
+            if target is not None and (
+                now_minute == target
+                or (now_minute == target + 1 and prev_minute < target)
+            ):
+                self._trigger_anthem("evening")
+
+    def _trigger_anthem(self, period: str) -> None:
+        """Start anthem playback without blocking the time checker."""
+        import datetime
+        today = datetime.datetime.now().strftime("%Y-%m-%d")
+        if self._last_played.get(period) == today:
+            return
+        self._last_played[period] = today
+        threading.Thread(
+            target=self._play_anthem, args=(period,), daemon=True
+        ).start()
 
     def _play_anthem(self, period: str) -> None:
         """Play the national anthem."""
@@ -667,11 +708,8 @@ class NationalAnthem:
             self._play_callback(self.config.anthem_file)
 
         # Wait for anthem to finish
-        if self.config.duration > 0:
-            time.sleep(self.config.duration)
-        else:
-            # Default anthem length (80 seconds for Thai anthem)
-            time.sleep(80)
+        duration = self.config.duration or self._detect_duration()
+        time.sleep(duration)
 
         # Resume playback
         if self.config.resume_after and self._resume_callback:
@@ -679,6 +717,20 @@ class NationalAnthem:
 
         self._log(f"Anthem finished ({period})")
         self._status("finished", period)
+
+    def _detect_duration(self) -> float:
+        """Read the configured anthem duration when it was not saved yet."""
+        if not self.config.anthem_file or not os.path.isfile(self.config.anthem_file):
+            return 80.0
+        try:
+            from mutagen import File as MutagenFile
+            media = MutagenFile(self.config.anthem_file)
+            if media and media.info and media.info.length > 0:
+                self.config.duration = float(media.info.length)
+                return self.config.duration
+        except Exception:
+            pass
+        return 80.0
 
     def _log(self, msg: str) -> None:
         """Log a message."""
@@ -704,18 +756,22 @@ class NationalAnthem:
         if current_day not in self.config.days:
             return "No anthem scheduled today"
 
+        # Normalize config times so '8:00' compares correctly against '08:00'
+        morning = self._normalize_time(self.config.morning_time)
+        evening = self._normalize_time(self.config.evening_time)
+
         # Check if morning already played
         morning_played = self._last_played.get("morning") == today
         evening_played = self._last_played.get("evening") == today
 
-        if not morning_played and current_time < self.config.morning_time:
-            return f"Morning: {self.config.morning_time}"
-        elif not evening_played and current_time < self.config.evening_time:
-            return f"Evening: {self.config.evening_time}"
+        if not morning_played and current_time < morning:
+            return f"Morning: {morning}"
+        elif not evening_played and current_time < evening:
+            return f"Evening: {evening}"
         elif not morning_played:
-            return f"Morning: {self.config.morning_time} (pending)"
+            return f"Morning: {morning} (pending)"
         elif not evening_played:
-            return f"Evening: {self.config.evening_time} (pending)"
+            return f"Evening: {evening} (pending)"
         else:
             return "All done for today"
 

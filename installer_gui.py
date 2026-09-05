@@ -29,7 +29,7 @@ ctk.set_default_color_theme("blue")
 
 # ── Constants ──
 APP_NAME = "FreQ"
-APP_VERSION = "2.2.0"
+APP_VERSION = "2.5.46"
 APP_DESC = "Radio Playlist Manager"
 PUBLISHER = "SocieticsTv Broadcasting & Network"
 

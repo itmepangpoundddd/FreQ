@@ -47,6 +47,8 @@ def find_ffmpeg() -> Optional[str]:
             Path(r"C:\Program Files\ffmpeg\bin"),
             Path.home() / "Documents" / "yt-dlp",
             Path(__file__).parent / "ffmpeg",
+            Path(__file__).parent / "deps" / "ffmpeg-essentials",
+            Path(_sys.executable).parent / "ffmpeg",
         ]
     else:
         candidates = [
@@ -64,8 +66,8 @@ def find_ffmpeg() -> Optional[str]:
 # Cache metadata file
 CACHE_META = "cache_index.json"
 DEFAULT_CACHE_DIR = Path.home() / ".freq_cache"
-DEFAULT_MAX_FILES = 50          # max cached songs
-DEFAULT_MAX_SIZE_MB = 500       # max total cache size in MB
+DEFAULT_MAX_FILES = 200         # max cached songs
+DEFAULT_MAX_SIZE_MB = 2048       # max total cache size in MB
 
 
 @dataclass

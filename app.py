@@ -112,7 +112,8 @@ def insert_to_queue():
         url=data.get("url", ""),
         thumbnail=data.get("thumbnail", ""),
     )
-    rq.insert_song(idx, song)
+    if not rq.insert_song(idx, song):
+        return jsonify({"ok": False, "error": "Invalid position"}), 400
     return jsonify({"ok": True, "song": song.to_dict()})
 
 
@@ -327,4 +328,4 @@ def clear_logs():
 # ──────────────────────────────────────────────
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(debug=False, port=5000)

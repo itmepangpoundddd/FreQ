@@ -18,6 +18,8 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
+import uuid
 import threading
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
@@ -42,6 +44,7 @@ from radio_manager import (
 )
 from audio import AudioDeviceManager
 from player import AudioPlayer
+from mic_recorder import record_wav, SOUNDDEVICE_AVAILABLE
 from cache import cache as song_cache
 from icons import cached_icon, get_tk_image, ICON_PATHS
 from tooltips import ToolTip
@@ -767,7 +770,6 @@ class TimePickerDialog(tk.Toplevel):
         self.time_label = tk.Label(self, text="", bg=BG, fg=ACCENT,
                                    font=("Segoe UI", 32, "bold"))
         self.time_label.pack(pady=(0, 14))
-        self._update_display()
 
         # Hour row
         hf = tk.Frame(self, bg=CARD)
@@ -802,6 +804,9 @@ class TimePickerDialog(tk.Toplevel):
                   activebackground=ACCENT, activeforeground=FG,
                   font=("Segoe UI", 12, "bold"),
                   command=lambda: self._adjust("min", 5)).pack(side="left", padx=2, pady=4)
+
+        # All display labels exist before the first refresh.
+        self._update_display()
 
         # Quick presets
         pf = tk.Frame(self, bg=CARD)
@@ -1067,6 +1072,7 @@ class RadioApp(ctk.CTk):
         self._autosave_last = 0.0
 
         self._build_ui()
+        self._setup_clipboard_support()
         self._restore_settings(self.rq.last_settings)
         self._refresh_queue()
         self._update_now_playing()
@@ -1111,7 +1117,8 @@ class RadioApp(ctk.CTk):
     def _on_paste(self, event=None) -> None:
         """Handle Ctrl+V paste into focused entry widget."""
         try:
-            focused = self.focus_get()
+            focused = getattr(event, "widget", None) if event else None
+            focused = focused or self.focus_get()
             if focused is None:
                 return
             wclass = focused.winfo_class()
@@ -1121,21 +1128,86 @@ class RadioApp(ctk.CTk):
                 except Exception:
                     return
                 if wclass == "Entry":
-                    focused.delete(0, "end")
-                    focused.insert(0, text.strip())
+                    try:
+                        focused.delete("sel.first", "sel.last")
+                    except tk.TclError:
+                        pass
+                    focused.insert("insert", text)
                 else:
+                    try:
+                        focused.delete("sel.first", "sel.last")
+                    except tk.TclError:
+                        pass
                     focused.insert("insert", text)
         except Exception:
             pass
         return "break"
 
+    def _setup_clipboard_support(self) -> None:
+        """Give every text input the same clipboard shortcuts and context menu."""
+        def visit(widget):
+            try:
+                if widget.winfo_class() in ("Entry", "Text"):
+                    self._bind_clipboard_shortcuts(widget)
+                    if not getattr(widget, "_freq_clipboard_ready", False):
+                        self._add_clipboard_menu(widget)
+                for child in widget.winfo_children():
+                    visit(child)
+            except Exception:
+                pass
+
+        visit(self)
+
+    def _bind_clipboard_shortcuts(self, widget) -> None:
+        """Bind clipboard shortcuts without replacing widget default behavior."""
+        widget.bind("<Control-c>", lambda e: (self._clipboard_action(widget, "copy"), "break")[1], add="+")
+        widget.bind("<Control-x>", lambda e: (self._clipboard_action(widget, "cut"), "break")[1], add="+")
+        widget.bind("<Control-v>", lambda e: (self._clipboard_action(widget, "paste"), "break")[1], add="+")
+
+    def _clipboard_action(self, widget, action: str) -> None:
+        """Run a standard clipboard action on an Entry or Text widget."""
+        try:
+            if action == "copy":
+                widget.event_generate("<<Copy>>")
+            elif action == "cut":
+                widget.event_generate("<<Cut>>")
+            elif action == "paste":
+                self._on_paste(type("PasteEvent", (), {"widget": widget})())
+            elif action == "select_all":
+                if widget.winfo_class() == "Entry":
+                    widget.select_range(0, "end")
+                    widget.icursor("end")
+                else:
+                    widget.tag_add("sel", "1.0", "end")
+                    widget.mark_set("insert", "end")
+        except Exception:
+            pass
+
+    def _add_clipboard_menu(self, widget) -> None:
+        """Attach copy/cut/paste actions to one text input."""
+        if getattr(widget, "_freq_clipboard_ready", False):
+            return
+        widget._freq_clipboard_ready = True
+        menu = tk.Menu(widget, tearoff=0, bg="#2b2b2b", fg="white",
+                       activebackground="#3b82f6", activeforeground="white")
+        menu.add_command(label="Copy", command=lambda: self._clipboard_action(widget, "copy"))
+        menu.add_command(label="Cut", command=lambda: self._clipboard_action(widget, "cut"))
+        menu.add_command(label="Paste", command=lambda: self._clipboard_action(widget, "paste"))
+        menu.add_separator()
+        menu.add_command(label="Select All", command=lambda: self._clipboard_action(widget, "select_all"))
+        menu.add_command(label="Clear", command=lambda: widget.delete(0, "end") if widget.winfo_class() == "Entry" else widget.delete("1.0", "end"))
+        widget.bind("<Button-3>", lambda e: menu.tk_popup(e.x_root, e.y_root))
+
     def _paste_to_entry(self, entry) -> None:
         """Paste clipboard content to a specific entry widget."""
         try:
-            text = self.clipboard_get().strip()
+            text = self.clipboard_get()
             if text:
-                entry.delete(0, "end")
-                entry.insert(0, text)
+                try:
+                    entry.delete("sel.first", "sel.last")
+                except tk.TclError:
+                    pass
+                entry.insert("insert", text)
                 entry.configure(border_color=COLORS["green"])
                 entry.after(1500, lambda: entry.configure(border_color=COLORS["border"]))
         except Exception:
@@ -1143,11 +1215,18 @@ class RadioApp(ctk.CTk):
 
     def _add_paste_menu(self, widget) -> None:
         """Add right-click context menu with Paste option to a widget."""
+        if getattr(widget, "_freq_clipboard_ready", False):
+            return
+        widget._freq_clipboard_ready = True
         import tkinter.messagebox as mb
         menu = tk.Menu(widget, tearoff=0, bg="#2b2b2b", fg="white",
                        activebackground="#3b82f6", activeforeground="white")
-        menu.add_command(label="📋 Paste", command=lambda: self._paste_to_entry(widget))
-        menu.add_command(label="🗑 Clear", command=lambda: widget.delete(0, "end"))
+        menu.add_command(label="Copy", command=lambda: self._clipboard_action(widget, "copy"))
+        menu.add_command(label="Cut", command=lambda: self._clipboard_action(widget, "cut"))
+        menu.add_command(label="Paste", command=lambda: self._clipboard_action(widget, "paste"))
+        menu.add_separator()
+        menu.add_command(label="Select All", command=lambda: self._clipboard_action(widget, "select_all"))
+        menu.add_command(label="Clear", command=lambda: widget.delete(0, "end"))
         menu.add_separator()
         menu.add_command(label="➕ Paste & Add",
                          command=lambda: self._paste_and_add(widget))
@@ -1294,6 +1373,59 @@ class RadioApp(ctk.CTk):
 
 
 
+    def _add_mic_segment(self) -> None:
+        """Add a timed microphone recording as a normal queue item."""
+        if not SOUNDDEVICE_AVAILABLE:
+            messagebox.showerror("Microphone unavailable", "sounddevice is required for microphone recording.")
+            return
+
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Add Mic Segment")
+        dialog.geometry("360x220")
+        dialog.transient(self)
+        dialog.grab_set()
+
+        ctk.CTkLabel(dialog, text="Add microphone segment",
+                     font=ctk.CTkFont(size=14, weight="bold")).pack(pady=(16, 8))
+        duration_row = ctk.CTkFrame(dialog, fg_color="transparent")
+        duration_row.pack(fill="x", padx=18, pady=4)
+        ctk.CTkLabel(duration_row, text="Duration (seconds):", width=140, anchor="w").pack(side="left")
+        duration_entry = ctk.CTkEntry(duration_row, width=90)
+        duration_entry.insert(0, str(int(self.mic.timer_duration or 30)))
+        duration_entry.pack(side="left")
+
+        devices = getattr(self, "_mic_input_devices", self.audio_mgr.get_input_devices())
+        device_names = ["Default"] + [d.name for d in devices]
+        device_var = ctk.StringVar(value=self.mic_device_var.get() if hasattr(self, "mic_device_var") else "Default")
+        device_row = ctk.CTkFrame(dialog, fg_color="transparent")
+        device_row.pack(fill="x", padx=18, pady=4)
+        ctk.CTkLabel(device_row, text="Input mic:", width=140, anchor="w").pack(side="left")
+        ctk.CTkOptionMenu(device_row, variable=device_var, values=device_names, width=170).pack(side="left")
+
+        def add_item() -> None:
+            try:
+                duration = float(duration_entry.get().strip())
+                if not 0.5 <= duration <= 3600:
+                    raise ValueError
+            except ValueError:
+                messagebox.showerror("Invalid duration", "Enter a duration from 0.5 to 3600 seconds.", parent=dialog)
+                return
+            selected = device_var.get()
+            device_id = next((d.id for d in devices if d.name == selected), None)
+            self.rq.add_song(Song(
+                title="Microphone",
+                artist="Live voice",
+                duration=duration,
+                source="mic",
+                mic_duration=duration,
+                mic_device_index=device_id,
+            ))
+            self._refresh_queue()
+            dialog.destroy()
+
+        ctk.CTkButton(dialog, text="Add to Queue", command=add_item,
+                      fg_color=COLORS["green"], text_color="#000000").pack(pady=18)
+
     # ─────────────────────────────────────────
     # Build UI
     # ─────────────────────────────────────────
@@ -1396,6 +1528,22 @@ class RadioApp(ctk.CTk):
                        command=self._toggle_remote_control)
         self.btn_remote.pack(side="left", padx=2)
         ToolTip(self.btn_remote, text="LiveLAN Remote", description="Start web remote for mobile")
+
+        self.btn_anthem = ctk.CTkButton(right, text="🇹🇭", width=36, height=32,
+                       fg_color=COLORS["green"], text_color="#000",
+                       hover_color="#2ea043", corner_radius=8,
+                       font=ctk.CTkFont(size=16),
+                       command=self._play_anthem_manual)
+        self.btn_anthem.pack(side="left", padx=2)
+        ToolTip(self.btn_anthem, text="National Anthem (Manual)", description="Play the national anthem now — for when the 08:00/18:00 schedule missed")
+
+        self.btn_jingle = ctk.CTkButton(right, text="🔔", width=36, height=32,
+                       fg_color=COLORS["purple"], text_color="#000",
+                       hover_color="#b484d9", corner_radius=8,
+                       font=ctk.CTkFont(size=16),
+                       command=self._play_jingle_manual)
+        self.btn_jingle.pack(side="left", padx=2)
+        ToolTip(self.btn_jingle, text="Jingle (Manual)", description="Play the jingle now — pauses music, then resumes the current song")
 
         # Separator
         ctk.CTkFrame(right, width=1, height=28, fg_color=COLORS["border"]).pack(side="left", padx=6)
@@ -1685,6 +1833,11 @@ class RadioApp(ctk.CTk):
                        fg_color=COLORS["purple"], hover_color="#a371f7",
                        command=self._pick_file).pack(fill="x", padx=8, pady=(4, 8))
 
+        ctk.CTkButton(tab, text="🎙 Add Mic Segment to Queue", height=32,
+                       fg_color=COLORS["orange"], hover_color="#e3a928",
+                       text_color="#000000",
+                       command=self._add_mic_segment).pack(fill="x", padx=8, pady=(0, 8))
+
         # Separator
         ctk.CTkFrame(tab, height=1, fg_color=COLORS["border"]).pack(fill="x", padx=8, pady=4)
 
@@ -1924,6 +2077,7 @@ class RadioApp(ctk.CTk):
 
         self._download_mode = False
         self._jingle_playing = False
+        self._jingle_was_playing = False
         self._ad_playing = False
         self._saved_playback_position = 0.0
         self._last_refresh_time = 0.0
@@ -1941,6 +2095,7 @@ class RadioApp(ctk.CTk):
         self._restoring_settings = False
         self._pre_duck_volume = 80.0
         self._anthem_playing = False
+        self._anthem_was_playing = False
 
         # Initialize new features
         self.visualizer = None  # Lazy init
@@ -2222,6 +2377,8 @@ class RadioApp(ctk.CTk):
         # Icon
         if song.source == "youtube":
             icon = "⚡" if song_cache.has(song.id) else "🔗"
+        elif song.source == "mic":
+            icon = "🎙"
         elif song.source == "file":
             icon = "📁"
         else:
@@ -2304,6 +2461,12 @@ class RadioApp(ctk.CTk):
 
     def _play_index(self, index: int) -> None:
         """Play song at index — download YouTube audio then play"""
+        # Any manual/queue playback supersedes anthem/jingle playback — cancel
+        # a pending anthem/jingle resume so it can't hijack the new selection.
+        self._anthem_playing = False
+        self._anthem_was_playing = False
+        self._jingle_playing = False
+        self._jingle_was_playing = False
         # Stop current playback
         self.audio_player.stop()
         self.rq.play(index)
@@ -2313,6 +2476,9 @@ class RadioApp(ctk.CTk):
 
         # Start real playback
         song = self.rq.queue[index]
+        if song.source == "mic":
+            self._play_mic_segment(song, index)
+            return
         if song.source == "youtube" and song.url:
             self.np_time_total.configure(text=song.duration_str)
             self._download_mode = True
@@ -2355,6 +2521,62 @@ class RadioApp(ctk.CTk):
             # Local song without file — simulate
             self.np_time_total.configure(text=song.duration_str)
             self.waveform.clear()
+
+    def _play_mic_segment(self, song: Song, index: int) -> None:
+        """Record and play a microphone queue item without blocking the GUI."""
+        duration = song.mic_duration or song.duration
+        device_index = song.mic_device_index
+        output_path = str(Path(tempfile.gettempdir()) / f"freq_mic_{uuid.uuid4().hex}.wav")
+        self._download_mode = True
+        self.np_status.configure(text="🎙 Recording microphone...", text_color=COLORS["orange"])
+        self.btn_play.configure(state="disabled")
+
+        def _record() -> None:
+            ok = record_wav(output_path, duration, device_index=device_index)
+
+            def _start_recording() -> None:
+                self._download_mode = False
+                self.btn_play.configure(state="normal")
+                if self.rq.current_index != index or not self._playing:
+                    try:
+                        os.remove(output_path)
+                    except OSError:
+                        pass
+                    return
+                if not ok:
+                    self.np_status.configure(text="❌ Microphone recording failed", text_color=COLORS["red"])
+                    self.rq.skip_next()
+                    if self.rq.queue:
+                        self._play_index(self.rq.current_index)
+                    return
+                self.np_status.configure(text="🎙 Playing microphone segment...", text_color=COLORS["orange"])
+                def _mic_finished() -> None:
+                    try:
+                        os.remove(output_path)
+                    except OSError:
+                        pass
+                    self.after(0, self._on_track_finished)
+
+                if not self.audio_player.play_file(
+                    output_path,
+                    duration=duration,
+                    on_finish=_mic_finished,
+                ):
+                    self.np_status.configure(text="❌ Cannot play microphone recording", text_color=COLORS["red"])
+                    try:
+                        os.remove(output_path)
+                    except OSError:
+                        pass
+                    self.rq.skip_next()
+                    if self.rq.queue:
+                        self._play_index(self.rq.current_index)
+                    return
+                if streamer.is_streaming:
+                    streamer.on_track_change(song.title, song.artist, output_path)
+
+            self.after(0, _start_recording)
+
+        threading.Thread(target=_record, daemon=True).start()
 
     def _toggle_play(self) -> None:
         if self._playing:
@@ -3731,6 +3953,19 @@ class RadioApp(ctk.CTk):
                                           font=ctk.CTkFont(size=9), text_color=COLORS["text3"])
         self.jingle_label.pack(anchor="w", padx=12)
 
+        jingle_test_row = ctk.CTkFrame(scroll, fg_color="transparent")
+        jingle_test_row.pack(fill="x", padx=8, pady=(6, 0))
+        ctk.CTkButton(jingle_test_row, text="\u25b6  Play Now (Manual)", width=140, height=28,
+                       fg_color=COLORS["purple"], hover_color="#b484d9",
+                       corner_radius=8, font=ctk.CTkFont(size=10, weight="bold"),
+                       text_color="#ffffff",
+                       command=self._play_jingle_manual).pack(side="left", padx=4)
+        ctk.CTkButton(jingle_test_row, text="\u23f9  Stop", width=70, height=28,
+                       fg_color=COLORS["red"], hover_color="#da3633",
+                       corner_radius=8, font=ctk.CTkFont(size=10),
+                       text_color="#ffffff",
+                       command=self._jingle_stop).pack(side="left", padx=4)
+
         self._settings_sep(scroll)
         # -- Mic --
         ctk.CTkLabel(scroll, text="\U0001f3a4 Microphone", font=ctk.CTkFont(size=12, weight="bold"),
@@ -3875,7 +4110,7 @@ class RadioApp(ctk.CTk):
         # Test anthem button
         anthem_test_row = ctk.CTkFrame(scroll, fg_color="transparent")
         anthem_test_row.pack(fill="x", padx=8, pady=(6, 0))
-        ctk.CTkButton(anthem_test_row, text="\u25b6  Play Now (Test)", width=130, height=28,
+        ctk.CTkButton(anthem_test_row, text="\u25b6  Play Now (Manual)", width=140, height=28,
                        fg_color=COLORS["green"], hover_color="#2ea043",
                        corner_radius=8, font=ctk.CTkFont(size=10, weight="bold"),
                        text_color="#ffffff",
@@ -4439,18 +4674,21 @@ class RadioApp(ctk.CTk):
                 fields = self._shoutcast_fields
                 host = fields["host"].get() or "localhost"
                 port = int(fields["port"].get() or "8000")
+                username = "source"
                 password = fields["password"].get() or "hackme"
                 mount = "/"
             elif proto_name == "Icecast":
                 fields = self._icecast_fields
                 host = fields["host"].get() or "localhost"
                 port = int(fields["port"].get() or "8000")
+                username = fields["user"].get() or "source"
                 password = fields["password"].get() or "hackme"
                 mount = fields["mount"].get() or "/stream"
             elif proto_name == "WebRTC":
                 fields = self._webrtc_fields
                 host = "webrtc"
                 port = 0
+                username = "source"
                 password = fields["bearer"].get() or ""
                 mount = fields["whip_url"].get() or ""
             else:
@@ -4463,6 +4701,7 @@ class RadioApp(ctk.CTk):
             protocol=proto,
             host=host,
             port=port,
+            username=username,
             password=password,
             mount=mount,
             stream_name=self.stream_name.get() or "FreQ Radio",
@@ -4502,16 +4741,22 @@ class RadioApp(ctk.CTk):
         """Periodically update stream status label."""
         try:
             if streamer.is_streaming:
-                s = streamer.status
+                s = streamer.get_status()
                 uptime = int(s.uptime)
                 m, sec = divmod(uptime, 60)
                 h, m = divmod(m, 60)
                 time_str = f"{h}:{m:02d}:{sec:02d}" if h else f"{m}:{sec:02d}"
-                info = f"{time_str} | {s.bytes_sent // 1024}KB sent"
+                info = f"{time_str} | Connected to {s.server_info}"
                 if s.listeners > 0:
                     info += f" | {s.listeners} listeners"
                 self.stream_status_label.configure(text="🔴 Streaming", text_color=COLORS["red"])
                 self.stream_info_label.configure(text=info)
+            elif streamer.state == StreamState.RECONNECTING:
+                self.stream_status_label.configure(text="⚠ Reconnecting", text_color=COLORS["orange"])
+                self.stream_info_label.configure(text="Icecast connection lost; retrying...")
+            elif streamer.state == StreamState.ERROR:
+                self.stream_status_label.configure(text="❌ Stream error", text_color=COLORS["red"])
+                self.stream_info_label.configure(text="Connection failed; check Icecast settings and logs")
             elif hasattr(self, '_relay_playing') and self._relay_playing:
                 self.stream_status_label.configure(text="🔗 Relay active", text_color=COLORS["green"])
         except Exception:
@@ -4800,6 +5045,63 @@ class RadioApp(ctk.CTk):
         self.ad_interval_entry.insert(0, str(val))
         self.commercial.interval = val
 
+    def _play_jingle_manual(self) -> None:
+        """Manually play the jingle now — pauses music, plays the jingle,
+        then resumes the interrupted song."""
+        if self._jingle_playing or self._anthem_playing:
+            self._show_toast("🔔 A jingle/anthem is already playing")
+            return
+        if not self.jingle.jingle_file:
+            messagebox.showwarning("No jingle file", "Select a jingle file first.")
+            return
+        if not os.path.isfile(self.jingle.jingle_file):
+            messagebox.showwarning("File not found", f"Jingle file not found:\n{self.jingle.jingle_file}")
+            return
+        # Save current state
+        self._jingle_was_playing = self._playing
+        self._jingle_saved_index = self.rq.current_index
+        self._jingle_saved_position = 0.0
+        if self._playing and self.audio_player.available:
+            self._jingle_saved_position = self.audio_player.get_position()
+            self.audio_player.pause()
+        # Play jingle — resume when it finishes
+        self._jingle_playing = True
+        self.np_status.configure(text="🔔 Jingle (manual)...", text_color=COLORS["purple"])
+        ok = self.audio_player.play_file(
+            self.jingle.jingle_file, duration=0,
+            on_finish=lambda: self.after(0, self._jingle_resume))
+        if not ok:
+            self._jingle_playing = False
+            self._show_toast("⚠️ Cannot play jingle file")
+            self._jingle_resume()  # restore whatever was playing before
+            return
+        self._playing = True
+        self.btn_play.configure(text="⏸")
+
+    def _jingle_stop(self) -> None:
+        """Stop jingle playback and resume the previous song."""
+        self.audio_player.stop()
+        self._jingle_resume()
+
+    def _jingle_resume(self) -> None:
+        """Resume playback after a manual jingle."""
+        def _do_resume():
+            self._jingle_playing = False
+            # Only restore playback if something was actually playing before
+            # the jingle. _play_index clears _jingle_was_playing whenever the
+            # user/queue starts a different track, so a stale resume never
+            # hijacks a newer selection.
+            if not self._jingle_was_playing:
+                return
+            idx = getattr(self, '_jingle_saved_index', self.rq.current_index)
+            pos = getattr(self, '_jingle_saved_position', 0.0)
+            if idx >= 0 and idx < len(self.rq.queue):
+                self._saved_playback_position = pos
+                self._play_index(idx)
+                self._update_now_playing()
+                self._refresh_queue()
+        self.after(0, _do_resume)
+
     def _select_jingle(self) -> None:
         path = filedialog.askopenfilename(filetypes=[("Audio", "*.mp3 *.wav *.ogg *.flac")])
         if path:
@@ -4917,6 +5219,7 @@ class RadioApp(ctk.CTk):
     def _anthem_pause(self) -> None:
         """Pause current playback for anthem (called from scheduler thread)."""
         def _do_pause():
+            self._anthem_was_playing = self._playing
             self._anthem_saved_index = self.rq.current_index
             self._anthem_saved_position = 0.0
             if self._playing and self.audio_player.available:
@@ -4934,17 +5237,28 @@ class RadioApp(ctk.CTk):
                 dur = self._detect_anthem_duration(filepath)
                 self.anthem.config.duration = dur
             if self.audio_player.available:
-                self.audio_player.play_file(filepath, duration=dur)
+                ok = self.audio_player.play_file(filepath, duration=dur)
+                if not ok:
+                    self._anthem_playing = False
+                    return
                 self._playing = True
                 self.btn_play.configure(text="⏸")
                 self.np_title.configure(text="🇹🇭 National Anthem")
                 self.np_artist.configure(text="正在播放เพลงชาติ")
+                if streamer.is_streaming:
+                    streamer.on_track_change("National Anthem", "", filepath)
         self.after(0, _do_play)
 
     def _anthem_resume(self) -> None:
         """Resume original playback after anthem (called from scheduler thread)."""
         def _do_resume():
             self._anthem_playing = False
+            # Only restore playback if something was actually playing before
+            # the anthem. _play_index clears _anthem_was_playing whenever the
+            # user/queue starts a different track, so a stale resume never
+            # hijacks a newer selection.
+            if not self._anthem_was_playing:
+                return
             idx = getattr(self, '_anthem_saved_index', self.rq.current_index)
             pos = getattr(self, '_anthem_saved_position', 0.0)
             if idx >= 0 and idx < len(self.rq.queue):
@@ -4963,8 +5277,22 @@ class RadioApp(ctk.CTk):
                 next_time = self.anthem.get_next_play_time()
                 self.anthem_next_label.configure(text=f"Next anthem: {next_time or '—'}", text_color=COLORS["text2"])
 
+    def _play_anthem_manual(self) -> None:
+        """Manually play the national anthem now.
+
+        Fallback for when the scheduled play (e.g. 08:00) was missed —
+        pauses current playback, plays the anthem, then resumes.
+        """
+        if self._anthem_playing:
+            self._show_toast("🇹🇭 Anthem is already playing")
+            return
+        self._test_anthem_play()
+
     def _test_anthem_play(self) -> None:
         """Force-play the anthem now (for testing)."""
+        if self._anthem_playing:
+            self._show_toast("🇹🇭 Anthem is already playing")
+            return
         self._sync_anthem_times()
         if not self.anthem.config.anthem_file:
             messagebox.showwarning("No anthem file", "Select an anthem file first.")
@@ -4973,21 +5301,30 @@ class RadioApp(ctk.CTk):
             messagebox.showwarning("File not found", f"Anthem file not found:\n{self.anthem.config.anthem_file}")
             return
         # Save current state
+        self._anthem_was_playing = self._playing
         self._anthem_saved_index = self.rq.current_index
         self._anthem_saved_position = 0.0
         if self._playing and self.audio_player.available:
             self._anthem_saved_position = self.audio_player.get_position()
             self.audio_player.pause()
         # Play anthem — auto-detect duration from file
+        self._anthem_playing = True
         duration = self.anthem.config.duration
         if duration <= 0:
             duration = self._detect_anthem_duration()
             self.anthem.config.duration = duration
         if self.audio_player.available:
-            self.audio_player.play_file(
+            ok = self.audio_player.play_file(
                 self.anthem.config.anthem_file, duration=duration)
+            if not ok:
+                self._anthem_playing = False
+                self._show_toast("⚠️ Cannot play anthem file")
+                self._anthem_resume()  # restore whatever was playing before
+                return
             self._playing = True
             self.btn_play.configure(text="⏸")
+            if streamer.is_streaming:
+                streamer.on_track_change("National Anthem", "", self.anthem.config.anthem_file)
         if hasattr(self, 'anthem_next_label'):
             self.anthem_next_label.configure(text="🇹🇭 Playing anthem (test)...", text_color=COLORS["accent"])
         # Auto-resume after duration via threading (no sleep on main thread)

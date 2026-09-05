@@ -32,6 +32,7 @@ from datetime import timedelta
 from enum import Enum, auto
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlparse
 from features import PlaybackModes, RepeatMode
 
 # Safe print: wraps stdout to handle Unicode errors in --noconsole mode
@@ -75,9 +76,11 @@ class Song:
     title: str = ""
     artist: str = ""
     duration: float = 0.0            # seconds
-    source: str = "local"            # "local" | "youtube" | "file"
+    source: str = "local"            # "local" | "youtube" | "file" | "mic"
     url: str = ""                    # YouTube URL (if any)
     file_path: str = ""              # Local file path (mp3/wav/etc)
+    mic_duration: float = 0.0        # Recording duration for mic queue items
+    mic_device_index: Optional[int] = None
     thumbnail: str = ""
     status: SongStatus = SongStatus.QUEUED
 
@@ -255,17 +258,23 @@ class YouTubeManager:
     @classmethod
     def is_playlist_url(cls, url: str) -> bool:
         """Check if URL is a playlist"""
-        return "playlist" in url.lower() or "list=" in url.lower()
+        return "list=" in url.lower()
 
     @classmethod
     def is_youtube_url(cls, url: str) -> bool:
         """Check if URL is a YouTube link"""
-        lower = url.lower().strip()
-        return (
-            "youtube.com" in lower or
-            "youtu.be" in lower or
-            "youtube.com/watch" in lower
-        )
+        try:
+            parsed = urlparse(url.strip())
+        except ValueError:
+            return False
+        host = (parsed.hostname or "").lower().rstrip(".")
+        return host in {
+            "youtube.com",
+            "www.youtube.com",
+            "m.youtube.com",
+            "music.youtube.com",
+            "youtu.be",
+        }
 
 
 # ===========================================================================
@@ -298,29 +307,55 @@ class RadioQueue:
             self.add_song(s)
         print(f"  📊  Total added: {len(songs)} songs")
 
-    def insert_song(self, position: int, song: Song) -> None:
+    def insert_song(self, position: int, song: Song) -> bool:
         """Insert a song at a specific position"""
         if position < 0 or position > len(self.queue):
             print(f"  ❌  Invalid position (0-{len(self.queue)})")
-            return
+            return False
         self.queue.insert(position, song)
+        if self.current_index >= position:
+            self.current_index += 1
         if song not in self.library:
             self.library.append(song)
         print(f"  ✅  Inserted at position {position}: {song.display_name}")
+        return True
 
     def remove_song(self, index: int) -> Optional[Song]:
         """Remove a song from the queue by index"""
         if not self._valid_index(index):
             print(f"  ❌  Invalid position (0-{len(self.queue) - 1})")
             return None
+        old_current = self.current_index
         removed = self.queue.pop(index)
+        if not self.queue:
+            self.current_index = -1
+        elif old_current == index:
+            self.current_index = min(index, len(self.queue) - 1)
+        elif old_current > index:
+            self.current_index -= 1
         print(f"  🗑️  Removed: {removed.display_name}")
         return removed
 
     def remove_by_title(self, title: str) -> int:
         """Remove all songs matching title (case-insensitive)"""
+        old_current = self.current_index
+        current_id = (
+            self.queue[old_current].id
+            if self._valid_index(old_current) else None
+        )
         before = len(self.queue)
         self.queue = [s for s in self.queue if title.lower() not in s.title.lower()]
+        if not self.queue:
+            self.current_index = -1
+        elif current_id:
+            current_pos = next(
+                (i for i, song in enumerate(self.queue) if song.id == current_id),
+                None,
+            )
+            self.current_index = (
+                current_pos if current_pos is not None
+                else min(old_current, len(self.queue) - 1)
+            )
         removed = before - len(self.queue)
         if removed:
             print(f"  🗑️  Removed {removed} songs matching '{title}'")
@@ -333,8 +368,16 @@ class RadioQueue:
         if not self._valid_index(from_idx) or not self._valid_index(to_idx):
             print(f"  ❌  Invalid position (0-{len(self.queue) - 1})")
             return
+        current_id = (
+            self.queue[self.current_index].id
+            if self._valid_index(self.current_index) else None
+        )
         song = self.queue.pop(from_idx)
         self.queue.insert(to_idx, song)
+        if current_id:
+            self.current_index = next(
+                i for i, queued in enumerate(self.queue) if queued.id == current_id
+            )
         print(f"  🔀  Moved '{song.display_name}' from {from_idx} → {to_idx}")
 
     def swap(self, idx1: int, idx2: int) -> None:
@@ -342,7 +385,15 @@ class RadioQueue:
         if not self._valid_index(idx1) or not self._valid_index(idx2):
             print(f"  ❌  Invalid position (0-{len(self.queue) - 1})")
             return
+        current_id = (
+            self.queue[self.current_index].id
+            if self._valid_index(self.current_index) else None
+        )
         self.queue[idx1], self.queue[idx2] = self.queue[idx2], self.queue[idx1]
+        if current_id:
+            self.current_index = next(
+                i for i, queued in enumerate(self.queue) if queued.id == current_id
+            )
         print(f"  🔀  Swapped positions {idx1} ↔ {idx2}")
 
     def clear_queue(self) -> None:

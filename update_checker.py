@@ -17,7 +17,7 @@ from urllib.error import URLError
 
 
 APP_NAME = "FreQ"
-CURRENT_VERSION = "2.2.0"
+CURRENT_VERSION = "2.5.46"
 GITHUB_REPO = "SocieticsTv/freq"
 CHECK_INTERVAL = 24 * 3600  # Check once per day (in seconds)
 

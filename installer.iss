@@ -6,7 +6,7 @@
 ; ═══════════════════════════════════════════════════════════════
 
 #define MyAppName "FreQ"
-#define MyAppVersion "2.2.1"
+#define MyAppVersion "2.5.46"
 #define MyAppPublisher "SocieticsTv Broadcasting & Network"
 #define MyAppURL "https://github.com/SocieticsTv/freq"
 #define MyAppExeName "FreQ.exe"
@@ -41,6 +41,10 @@ WizardStyle=modern
 WizardSizePercent=110
 WizardImageFile=wizard_large.bmp
 WizardSmallImageFile=wizard_small.bmp
+WizardKeepAspectRatio=yes
+WizardBackColor=$F4F7FB
+WizardImageBackColor=$0F172A
+WizardSmallImageBackColor=$0F172A
 
 ; Privileges
 PrivilegesRequired=lowest
@@ -58,6 +62,14 @@ CloseApplicationsFilter=FreQ.exe
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
+
+[Messages]
+WelcomeLabel1=ยินดีต้อนรับสู่การติดตั้ง {#MyAppName}
+WelcomeLabel2=ติดตั้ง {#MyAppName} เพื่อจัดการเพลย์ลิสต์และสตรีมวิทยุของคุณ\n\nเวอร์ชัน {#MyAppVersion}
+SelectDirLabel3=โปรแกรมจะถูกติดตั้งในโฟลเดอร์ต่อไปนี้:
+ReadyLabel1=พร้อมติดตั้ง {#MyAppName} แล้ว
+FinishedLabel=ติดตั้ง {#MyAppName} เสร็จสมบูรณ์แล้ว
+FinishedHeadingLabel=การติดตั้งเสร็จสมบูรณ์
 
 [Tasks]
 Name: "desktopicon"; Description: "Create desktop shortcut"; GroupDescription: "Shortcuts:"; Flags: checkedonce
@@ -89,7 +101,7 @@ Source: "app.py"; DestDir: "{app}\src"; Flags: ignoreversion
 Source: "translate_html2.py"; DestDir: "{app}\src"; Flags: ignoreversion
 Source: "requirements.txt"; DestDir: "{app}\src"; Flags: ignoreversion
 
-; Docs (commercial license/pricing removed — free & open source release)
+; GPL-3.0 license and project documentation
 Source: "LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion
 

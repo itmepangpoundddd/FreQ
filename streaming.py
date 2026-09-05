@@ -24,11 +24,12 @@ import logging
 import tempfile
 import threading
 import subprocess
+import queue
 from enum import Enum, auto
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Optional, Callable
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 logger = logging.getLogger("freq.streaming")
 
@@ -50,6 +51,7 @@ def _check_ffmpeg() -> bool:
             Path(r"C:\Program Files\ffmpeg\bin"),
             Path.home() / "Documents" / "yt-dlp",
             Path(__file__).parent / "ffmpeg",
+            Path(__file__).parent / "deps" / "ffmpeg-essentials",
         ]
     else:
         candidates = [
@@ -98,6 +100,7 @@ class StreamConfig:
     # Server settings
     host: str = "localhost"
     port: int = 8000
+    username: str = "source"
     password: str = "hackme"           # Icecast source password
     mount: str = "/freQ"               # Icecast mount point
 
@@ -160,6 +163,13 @@ class FFmpegStreamer:
         self._bytes_sent = 0
         self._lock = threading.Lock()
         self._monitor_thread: Optional[threading.Thread] = None
+        self._audio_thread: Optional[threading.Thread] = None
+        self._input_process: Optional[subprocess.Popen] = None
+        self._input_thread: Optional[threading.Thread] = None
+        self._pcm_writer_thread: Optional[threading.Thread] = None
+        self._input_stop_event = threading.Event()
+        self._pcm_queue: queue.Queue[bytes] = queue.Queue(maxsize=160)
+        self._icecast_socket: Optional[socket.socket] = None
         self._running = False
         self._current_stream_file: Optional[str] = None
         self._stream_title: str = ""
@@ -184,16 +194,26 @@ class FFmpegStreamer:
             self._state = StreamState.CONNECTING
 
             try:
+                if self.config.protocol == StreamProtocol.ICECAST:
+                    self._start_icecast_stream()
+                    return True
+
                 cmd = self._build_ffmpeg_command()
                 logger.info(f"Starting FFmpeg: {' '.join(cmd[:10])}...")
 
                 self._process = subprocess.Popen(
                     cmd,
-                    stdin=subprocess.PIPE,
+                    stdin=subprocess.DEVNULL,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.PIPE,
                     bufsize=0,
                 )
+                time.sleep(0.1)
+                if self._process.poll() is not None:
+                    stderr = self._process.stderr.read() if self._process.stderr else b""
+                    raise RuntimeError(
+                        f"FFmpeg exited: {stderr.decode(errors='ignore')[:300]}"
+                    )
 
                 self._start_time = time.time()
                 self._running = True
@@ -201,7 +221,7 @@ class FFmpegStreamer:
 
                 # Start monitor thread
                 self._monitor_thread = threading.Thread(
-                    target=self._monitor, daemon=True
+                    target=self._monitor, args=(self._process, False), daemon=True
                 )
                 self._monitor_thread.start()
 
@@ -238,6 +258,15 @@ class FFmpegStreamer:
             return False
 
         with self._lock:
+            if self.config.protocol == StreamProtocol.ICECAST and self._state == StreamState.STREAMING:
+                # Keep the Icecast connection and encoder alive between tracks.
+                self._current_stream_file = filepath
+                self._stream_title = title
+                self._stream_artist = artist
+                self._start_pcm_input(filepath)
+                self._update_icecast_metadata(title, artist)
+                return True
+
             # Stop any existing FFmpeg process
             self._stop_process()
 
@@ -247,6 +276,11 @@ class FFmpegStreamer:
             self._stream_artist = artist
 
             try:
+                if self.config.protocol == StreamProtocol.ICECAST:
+                    self._start_icecast_stream(filepath)
+                    self._update_icecast_metadata(title, artist)
+                    return True
+
                 cmd = self._build_ffmpeg_command(input_file=filepath)
                 logger.info(f"Streaming file: {os.path.basename(filepath)}")
                 logger.debug(f"FFmpeg cmd: {' '.join(cmd[:12])}...")
@@ -257,6 +291,12 @@ class FFmpegStreamer:
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.PIPE,
                 )
+                time.sleep(0.1)
+                if self._process.poll() is not None:
+                    stderr = self._process.stderr.read() if self._process.stderr else b""
+                    raise RuntimeError(
+                        f"FFmpeg exited: {stderr.decode(errors='ignore')[:300]}"
+                    )
 
                 self._start_time = time.time()
                 self._running = True
@@ -265,7 +305,7 @@ class FFmpegStreamer:
 
                 # Start monitor thread
                 self._monitor_thread = threading.Thread(
-                    target=self._monitor, daemon=True
+                    target=self._monitor, args=(self._process, True), daemon=True
                 )
                 self._monitor_thread.start()
 
@@ -314,14 +354,17 @@ class FFmpegStreamer:
 
     def write_audio(self, data: bytes) -> None:
         """Write PCM audio data to the FFmpeg pipe."""
-        if self._process and self._process.stdin and self._state == StreamState.STREAMING:
+        if self._state != StreamState.STREAMING or not data:
+            return
+        try:
+            self._pcm_queue.put_nowait(data)
+        except queue.Full:
+            # Drop the oldest audio block instead of blocking the playback thread.
             try:
-                self._process.stdin.write(data)
-                self._process.stdin.flush()
-                self._bytes_sent += len(data)
-            except (BrokenPipeError, OSError):
-                self._state = StreamState.RECONNECTING
-                logger.error("Pipe broken, attempting reconnect...")
+                self._pcm_queue.get_nowait()
+                self._pcm_queue.put_nowait(data)
+            except queue.Empty:
+                pass
 
     def get_status(self) -> StreamStatus:
         """Get current streaming status."""
@@ -336,6 +379,24 @@ class FFmpegStreamer:
 
     def _stop_process(self) -> None:
         """Kill the current FFmpeg process if running."""
+        self._input_stop_event.set()
+        if self._input_process:
+            try:
+                self._input_process.terminate()
+            except Exception:
+                pass
+            self._input_process = None
+        self._input_thread = None
+        if self._icecast_socket:
+            try:
+                self._icecast_socket.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            try:
+                self._icecast_socket.close()
+            except OSError:
+                pass
+            self._icecast_socket = None
         if self._process:
             try:
                 self._process.stdin.close()
@@ -350,12 +411,241 @@ class FFmpegStreamer:
                 except Exception:
                     pass
             self._process = None
+        while True:
+            try:
+                self._pcm_queue.get_nowait()
+            except queue.Empty:
+                break
+
+    def _start_icecast_stream(self, input_file: Optional[str] = None) -> None:
+        """Connect using Icecast's source protocol and feed it FFmpeg output."""
+        self._stop_process()
+        self._icecast_socket = self._connect_icecast()
+
+        cmd = self._build_ffmpeg_pcm_command()
+        self._process = subprocess.Popen(
+            cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            bufsize=0,
+        )
+        time.sleep(0.1)
+        if self._process.poll() is not None:
+            stderr = self._process.stderr.read() if self._process.stderr else b""
+            raise RuntimeError(f"FFmpeg exited: {stderr.decode(errors='ignore')[:300]}")
+
+        self._start_time = time.time()
+        self._bytes_sent = 0
+        self._running = True
+        self._state = StreamState.STREAMING
+        process = self._process
+        self._audio_thread = threading.Thread(
+            target=self._send_ffmpeg_output, args=(process, self._icecast_socket), daemon=True
+        )
+        self._audio_thread.start()
+        self._pcm_writer_thread = threading.Thread(
+            target=self._write_pcm_input, args=(process,), daemon=True
+        )
+        self._pcm_writer_thread.start()
+        self._input_stop_event.clear()
+        if input_file and os.path.isfile(input_file):
+            self._start_pcm_input(input_file)
+
+    def _start_pcm_input(self, filepath: str) -> None:
+        """Decode one file to PCM and feed the persistent encoder."""
+        self._input_stop_event.set()
+        if self._input_process:
+            try:
+                self._input_process.terminate()
+            except Exception:
+                pass
+
+        # Do not let buffered samples from the previous track leak into this one.
+        while True:
+            try:
+                self._pcm_queue.get_nowait()
+            except queue.Empty:
+                break
+
+        cmd = [
+            "ffmpeg", "-v", "error", "-re", "-i", filepath,
+            "-f", "s16le", "-acodec", "pcm_s16le",
+            "-ar", str(self.config.sample_rate), "-ac", str(self.config.channels),
+            "pipe:1",
+        ]
+        process = subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=0
+        )
+        self._input_process = process
+        stop_event = threading.Event()
+        self._input_stop_event = stop_event
+
+        def _feed() -> None:
+            try:
+                while not stop_event.is_set() and process.stdout:
+                    data = process.stdout.read(16384)
+                    if not data:
+                        break
+                    if stop_event.is_set():
+                        break
+                    self.write_audio(data)
+            finally:
+                if self._input_process is process:
+                    self._input_process = None
+
+        self._input_thread = threading.Thread(target=_feed, daemon=True)
+        self._input_thread.start()
+
+    def _write_pcm_input(self, process: subprocess.Popen) -> None:
+        """Move queued PCM into the long-lived FFmpeg encoder."""
+        try:
+            while self._running and self._process is process and process.stdin:
+                try:
+                    data = self._pcm_queue.get(timeout=0.25)
+                except queue.Empty:
+                    continue
+                process.stdin.write(data)
+                process.stdin.flush()
+                self._bytes_sent += len(data)
+        except (BrokenPipeError, OSError):
+            if self._running and self._process is process:
+                self._state = StreamState.RECONNECTING
+                logger.error("FFmpeg PCM input pipe closed")
+
+    def _build_ffmpeg_pcm_command(self) -> list[str]:
+        """Build one persistent PCM-to-Icecast encoder command."""
+        cfg = self.config
+        output_format = "mp3" if cfg.codec == "mp3" else cfg.codec
+        cmd = [
+            "ffmpeg", "-v", "error", "-f", "s16le",
+            "-ar", str(cfg.sample_rate), "-ac", str(cfg.channels),
+            "-i", "pipe:0", "-codec:a",
+        ]
+        if cfg.codec == "mp3":
+            cmd.extend(["libmp3lame", "-b:a", f"{cfg.bitrate}k"])
+        elif cfg.codec == "aac":
+            cmd.extend(["aac", "-b:a", f"{cfg.bitrate}k"])
+        elif cfg.codec == "ogg":
+            cmd.extend(["libvorbis", "-b:a", f"{cfg.bitrate}k"])
+        else:
+            cmd.extend(["libopus", "-b:a", f"{cfg.bitrate}k"])
+        cmd.extend([
+            "-ar", str(cfg.sample_rate), "-ac", str(cfg.channels),
+            "-f", output_format, "pipe:1",
+        ])
+        return cmd
+
+    def _connect_icecast(self) -> socket.socket:
+        """Perform BUTT-compatible PUT/SOURCE handshake with Icecast."""
+        cfg = self.config
+        mount = cfg.mount if cfg.mount.startswith("/") else f"/{cfg.mount}"
+        auth = base64.b64encode(
+            f"{cfg.username or 'source'}:{cfg.password}".encode()
+        ).decode()
+        content_type = "audio/mpeg" if cfg.codec == "mp3" else f"audio/{cfg.codec}"
+        audio_info = (
+            f"ice-bitrate={cfg.bitrate};ice-channels={cfg.channels};"
+            f"ice-samplerate={48000 if cfg.codec == 'opus' else cfg.sample_rate}"
+        )
+
+        for method in ("PUT", "SOURCE"):
+            sock = socket.create_connection((cfg.host, cfg.port), timeout=10)
+            request = (
+                f"{method} {mount} HTTP/{'1.1' if method == 'PUT' else '1.0'}\r\n"
+                f"Authorization: Basic {auth}\r\n"
+                f"Host: {cfg.host}:{cfg.port}\r\n"
+                "User-Agent: FreQ\r\n"
+                f"Content-Type: {content_type}\r\n"
+                f"ice-name: {cfg.stream_name}\r\n"
+                f"ice-description: {cfg.stream_description}\r\n"
+                f"ice-genre: {cfg.stream_genre}\r\n"
+                f"ice-public: {1 if cfg.stream_public else 0}\r\n"
+                f"ice-audio-info: {audio_info}\r\n\r\n"
+            ).encode("utf-8")
+            try:
+                sock.sendall(request)
+                response = self._read_icecast_response(sock)
+                status = int(response.split()[1]) if len(response.split()) > 1 else 0
+                if status == 200:
+                    logger.info("Icecast source connected using %s", method)
+                    sock.settimeout(None)
+                    return sock
+                sock.close()
+                if status == 401:
+                    raise RuntimeError("Icecast rejected username or password (401)")
+                if status == 403:
+                    raise RuntimeError("Icecast mountpoint is already in use (403)")
+                if status == 0 and method == "PUT":
+                    logger.warning("Icecast PUT returned no response; trying SOURCE")
+                    continue
+                if status != 404:
+                    raise RuntimeError(f"Icecast rejected source connection ({status})")
+            except (socket.timeout, ConnectionError, OSError) as exc:
+                sock.close()
+                if method == "PUT":
+                    logger.warning("Icecast PUT handshake did not respond; trying SOURCE")
+                    continue
+                raise RuntimeError(f"Icecast handshake failed: {exc}") from exc
+
+        raise RuntimeError("Icecast does not support PUT or SOURCE for this mountpoint")
+
+    @staticmethod
+    def _read_icecast_response(sock: socket.socket) -> str:
+        response = bytearray()
+        sock.settimeout(10)
+        while b"\r\n\r\n" not in response and len(response) < 16384:
+            chunk = sock.recv(4096)
+            if not chunk:
+                break
+            response.extend(chunk)
+        return response.decode("iso-8859-1", errors="replace")
+
+    def _send_ffmpeg_output(self, process: subprocess.Popen, sock: socket.socket) -> None:
+        """Forward encoded FFmpeg bytes to the active Icecast socket."""
+        try:
+            while self._running and self._process is process and process.stdout:
+                data = process.stdout.read(16384)
+                if not data:
+                    break
+                sock.sendall(data)
+                self._bytes_sent += len(data)
+        except (BrokenPipeError, ConnectionError, OSError) as exc:
+            if self._running and self._process is process:
+                self._state = StreamState.RECONNECTING
+                logger.error("Icecast connection lost: %s", exc)
+        finally:
+            if self._process is process and process.poll() is not None:
+                self._state = StreamState.DISCONNECTED
+
+    def _build_ffmpeg_audio_command(self, input_file: Optional[str] = None) -> list[str]:
+        """Build FFmpeg command that encodes audio to stdout for Icecast."""
+        cfg = self.config
+        cmd = ["ffmpeg", "-re", "-y"]
+        if input_file:
+            cmd.extend(["-i", input_file])
+        else:
+            channel_layout = "mono" if cfg.channels == 1 else "stereo"
+            cmd.extend(["-f", "lavfi", "-i", f"anullsrc=r={cfg.sample_rate}:cl={channel_layout}"])
+        if cfg.codec == "mp3":
+            cmd.extend(["-codec:a", "libmp3lame", "-b:a", f"{cfg.bitrate}k"])
+        elif cfg.codec == "aac":
+            cmd.extend(["-codec:a", "aac", "-b:a", f"{cfg.bitrate}k"])
+        elif cfg.codec == "ogg":
+            cmd.extend(["-codec:a", "libvorbis", "-b:a", f"{cfg.bitrate}k"])
+        elif cfg.codec == "opus":
+            cmd.extend(["-codec:a", "libopus", "-b:a", f"{cfg.bitrate}k"])
+        else:
+            cmd.extend(["-codec:a", "libmp3lame", "-b:a", f"{cfg.bitrate}k"])
+        cmd.extend(["-ar", str(cfg.sample_rate), "-ac", str(cfg.channels), "-f", "mp3" if cfg.codec == "mp3" else cfg.codec, "pipe:1"])
+        return cmd
 
     def _build_ffmpeg_command(self, input_file: Optional[str] = None) -> list[str]:
         """Build the FFmpeg command for streaming.
 
         If input_file is given, read from that file.
-        Otherwise, read from stdin (PCM s16le).
+        Otherwise, generate silence so Icecast receives the stream headers
+        immediately, even before a playable track is available.
         """
         cfg = self.config
         cmd = ["ffmpeg", "-re", "-y"]  # -re: read at native frame rate
@@ -364,10 +654,11 @@ class FFmpegStreamer:
         if input_file:
             cmd.extend(["-i", input_file])
         else:
-            cmd.extend(["-f", "s16le"])
-            cmd.extend(["-ar", str(cfg.sample_rate)])
-            cmd.extend(["-ac", str(cfg.channels)])
-            cmd.extend(["-i", "pipe:0"])
+            channel_layout = "mono" if cfg.channels == 1 else "stereo"
+            cmd.extend([
+                "-f", "lavfi",
+                "-i", f"anullsrc=r={cfg.sample_rate}:cl={channel_layout}",
+            ])
 
         # Output codec
         if cfg.codec == "mp3":
@@ -390,9 +681,20 @@ class FFmpegStreamer:
 
         # Output to server
         if cfg.protocol == StreamProtocol.ICECAST:
-            cmd.extend(["-f", "mp3" if cfg.codec == "mp3" else cfg.codec])
-            server_url = f"http://{cfg.host}:{cfg.port}{cfg.mount}"
-            cmd.extend(["-headers", f"Authorization: Basic {base64.b64encode(f'source:{cfg.password}'.encode()).decode()}\r\n"])
+            output_format = "mp3" if cfg.codec == "mp3" else cfg.codec
+            cmd.extend(["-f", output_format])
+            cmd.extend([
+                "-content_type",
+                "audio/mpeg" if output_format == "mp3" else f"audio/{output_format}",
+                "-ice_name", cfg.stream_name,
+                "-ice_description", cfg.stream_description,
+                "-ice_genre", cfg.stream_genre,
+                "-ice_public", "1" if cfg.stream_public else "0",
+            ])
+            mount = cfg.mount if cfg.mount.startswith("/") else f"/{cfg.mount}"
+            password = quote(str(cfg.password), safe="")
+            username = quote(str(cfg.username or "source"), safe="")
+            server_url = f"icecast://{username}:{password}@{cfg.host}:{cfg.port}{mount}"
             cmd.append(server_url)
 
         elif cfg.protocol == StreamProtocol.SHOUTCAST:
@@ -404,18 +706,20 @@ class FFmpegStreamer:
 
         return cmd
 
-    def _monitor(self) -> None:
+    def _monitor(self, process: subprocess.Popen, reconnect: bool) -> None:
         """Monitor FFmpeg process."""
-        while self._running and self._process:
-            if self._process.poll() is not None:
-                if self._running:
+        while self._running and self._process is process:
+            if process.poll() is not None:
+                if self._running and self._process is process and reconnect:
                     self._state = StreamState.RECONNECTING
-                    stderr = self._process.stderr.read() if self._process.stderr else b""
+                    stderr = process.stderr.read() if process.stderr else b""
                     logger.error(f"FFmpeg exited: {stderr.decode(errors='ignore')[:200]}")
                     # Auto-reconnect after 5 seconds
                     time.sleep(5)
-                    if self._running:
+                    if self._running and self._process is process:
                         self.connect()
+                elif self._process is process:
+                    self._state = StreamState.DISCONNECTED
                 break
             time.sleep(1)
 
@@ -453,11 +757,9 @@ class WebRTCStreamer:
             return False
 
         try:
-            self._state = StreamState.CONNECTING
-            self._running = True
-            self._state = StreamState.STREAMING
-            logger.info(f"WebRTC signaling started on port {self._signaling_port}")
-            return True
+            self._state = StreamState.ERROR
+            logger.error("WebRTC signaling is not implemented yet")
+            return False
         except Exception as e:
             self._state = StreamState.ERROR
             logger.error(f"Failed to start WebRTC: {e}")
@@ -503,8 +805,8 @@ class WebRTCStreamer:
 
     def add_peer(self, sdp_answer: str) -> bool:
         """Add a peer from SDP answer."""
-        # Placeholder — full implementation requires aiortc signaling
-        return True
+        # Do not claim success until signaling and peer creation exist.
+        return False
 
 
 # ═══════════════════════════════════════════════

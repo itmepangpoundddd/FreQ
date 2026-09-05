@@ -381,7 +381,7 @@ LIVELAN_HTML = """
 class LiveLAN:
     """LiveLAN remote control server for FreQ (like vMix LiveLan)."""
     
-    def __init__(self, app_instance=None, host: str = "0.0.0.0", port: int = 5050):
+    def __init__(self, app_instance=None, host: str = "127.0.0.1", port: int = 5050):
         self.app_instance = app_instance
         self.host = host
         self.port = port
