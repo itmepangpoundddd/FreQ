@@ -132,6 +132,8 @@ class AudioPlayer:
         self._seek_offset: float = 0.0      # seconds offset from original file start
         self._original_file: Optional[str] = None  # full original file (before seek trim)
         self._seek_trimmed_files: list[str] = []   # temp files created by seek
+        # Auto-cue: skip leading silence at the start of each track
+        self._auto_cue: bool = False
         # YouTube download state
         self._yt_ready_file: Optional[str] = None  # resolved file path after YT download
 
@@ -216,6 +218,18 @@ class AudioPlayer:
                     self._original_file = filepath
                 # else: seek-trimmed file, keep existing _original_file
 
+                # Auto-cue: swap in a silence-trimmed file before the first
+                # load so the track starts right at the music (single load).
+                if self._auto_cue and filepath == self._original_file:
+                    skipped, cue_path = self._apply_auto_cue(filepath)
+                    if cue_path:
+                        filepath = cue_path
+                        self._seek_offset = skipped
+                    else:
+                        self._seek_offset = 0.0
+                else:
+                    self._seek_offset = 0.0
+
                 pygame.mixer.music.load(filepath)
                 pygame.mixer.music.play()
                 self._current_file = filepath
@@ -223,9 +237,6 @@ class AudioPlayer:
                 self._is_paused = False
                 self._play_start_time = time.time()
                 self._pause_offset = 0.0
-                # Only reset seek offset for fresh plays (not seeked files)
-                if self._current_file == self._original_file:
-                    self._seek_offset = 0.0
                 self._duration = duration
                 self._on_finish = on_finish
                 self._start_progress_monitor()
@@ -256,6 +267,9 @@ class AudioPlayer:
         if song_id and song_cache.has(song_id):
             cached_path = song_cache.get(song_id)
             if cached_path and os.path.isfile(cached_path):
+                # Keep the resolved path available to the GUI so it can load
+                # the waveform and to the streamer for cache playback.
+                self._yt_ready_file = cached_path
                 if on_progress:
                     on_progress("cached", 100)
                 self.play_file(cached_path, duration, on_finish)
@@ -381,6 +395,44 @@ class AudioPlayer:
                     self._play_start_time = time.time() - self._pause_offset
                 except Exception:
                     pass
+
+    def reopen_output(self) -> bool:
+        """Re-initialize the mixer so playback follows the new default output.
+
+        The currently playing track keeps running: position, seek state and
+        the finish callback are preserved and playback resumes on the new
+        device within a few milliseconds. Returns True when the mixer was
+        successfully re-opened.
+        """
+        if not PYGAME_AVAILABLE:
+            return False
+        with self._lock:
+            was_playing = self._is_playing and not self._is_paused
+            position = self.get_position() if self._is_playing else 0.0
+            try:
+                if self._initialized:
+                    pygame.mixer.quit()
+                    self._initialized = False
+                pygame.mixer.init()
+                pygame.mixer.music.set_volume(self._volume)
+                self._initialized = True
+            except Exception as e:
+                print(f"  ⚠️  Cannot reopen audio output: {e}")
+                return False
+            if self._current_file and os.path.isfile(self._current_file):
+                try:
+                    pygame.mixer.music.load(self._current_file)
+                    if was_playing:
+                        pygame.mixer.music.play()
+                        # Re-align the wall-clock position tracker across the reload.
+                        self._play_start_time = time.time() - position
+                    elif self._is_paused:
+                        pygame.mixer.music.play()
+                        pygame.mixer.music.pause()
+                        self._play_start_time = time.time() - position
+                except Exception as e:
+                    print(f"  ⚠️  Cannot resume on new output: {e}")
+            return True
 
     def stop(self) -> None:
         if not self.available:
@@ -546,6 +598,49 @@ class AudioPlayer:
     @property
     def is_playing(self) -> bool:
         return self._is_playing and not self._is_paused
+
+    @property
+    def auto_cue(self) -> bool:
+        """Whether playback skips leading silence when a track starts."""
+        return self._auto_cue
+
+    @auto_cue.setter
+    def auto_cue(self, enabled: bool) -> None:
+        self._auto_cue = bool(enabled)
+
+    def _apply_auto_cue(self, filepath: str) -> tuple[float, Optional[str]]:
+        """Measure + trim leading silence on ``filepath`` (auto-cue).
+
+        Measures the silent head with the native silence detector (cached
+        per file) and, when there is one, trims the file with ffmpeg —
+        the same mechanism seek uses. Returns ``(seconds_skipped,
+        replacement_path)``; ``(0.0, None)`` means play from the top.
+        """
+        try:
+            from audio_meter import detect_leading_silence
+            lead = detect_leading_silence(filepath)
+        except Exception:
+            return 0.0, None
+        if lead <= 0.05:
+            return 0.0, None
+        if not self._ffmpeg_available() or not self._temp_dir:
+            return 0.0, None
+        try:
+            cue_file = str(self._temp_dir / f"cue_{os.path.basename(filepath)}")
+            cmd = [
+                _ffmpeg_exe(), "-y", "-ss", f"{lead:.3f}", "-i", filepath,
+                "-c:a", "libmp3lame", "-q:a", "2",
+                "-avoid_negative_ts", "make_zero", cue_file,
+            ]
+            result = subprocess.run(cmd, capture_output=True, timeout=30)
+            if result.returncode != 0 or not os.path.isfile(cue_file):
+                return 0.0, None
+            self._seek_trimmed_files.append(cue_file)
+            print(f"  ⏱️  Auto-cue: skipping {lead:.2f}s of silence")
+            return lead, cue_file
+        except Exception as e:
+            print(f"  ⚠️  Auto-cue failed: {e}")
+            return 0.0, None
 
     @property
     def is_paused(self) -> bool:

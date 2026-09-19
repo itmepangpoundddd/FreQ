@@ -33,6 +33,83 @@ def version() -> str:
     return match.group(1)
 
 
+# Functions the shipped native_audio_meter extension must expose. A stale
+# .pyd from an older build would load fine but silently miss the newer
+# spectrum/waveform entry points, dropping the app back to the Python
+# fallback — so verify the freshly built module before packaging it.
+NATIVE_METER_FUNCTIONS = (
+    "analyze_s16le_stereo",
+    "process_s16le_stereo",
+    "compute_spectrum",
+    "waveform_peaks",
+    "loudness_new",
+    "loudness_process",
+    "loudness_reset",
+    "samples_to_stereo_pcm",
+    "find_silence_end",
+)
+
+NATIVE_OUTPUT_FUNCTIONS = (
+    "list_output_devices",
+    "set_default_output_device",
+    "get_master_volume",
+    "set_master_volume",
+)
+
+
+def verify_native_meter() -> None:
+    """Import the freshly built native extensions and check entry points."""
+    checks = (
+        ("native_audio_meter", NATIVE_METER_FUNCTIONS),
+        ("native_audio_output", NATIVE_OUTPUT_FUNCTIONS),
+    )
+    for module_name, functions in checks:
+        check = (
+            "import sys; sys.path.insert(0, r'{root}'); "
+            "import {mod} as m; "
+            "missing = [f for f in {funcs} if not hasattr(m, f)]; "
+            "sys.exit(','.join(missing) or 0)"
+        ).format(root=ROOT, mod=module_name, funcs=functions)
+        result = subprocess.run(
+            [sys.executable, "-c", check],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            missing = result.stdout.strip() or result.stderr.strip()
+            raise RuntimeError(
+                f"{module_name} is missing entry points: {missing}. "
+                "Delete the stale .pyd and rerun the build."
+            )
+        print(f"{module_name} verified: " + ", ".join(functions))
+
+
+def verify_bundle() -> None:
+    """Check the PyInstaller bundle for runtime-critical files.
+
+    Catches data files silently dropped from the packaging list (e.g. the
+    startup splash image) and native modules that failed to ship — both
+    would otherwise degrade the installed app with no error at build time.
+    """
+    dist = ROOT / "dist" / "FreQ"
+    if not dist.is_dir():
+        raise RuntimeError(f"PyInstaller bundle not found: {dist}")
+    problems: list[str] = []
+    for name in ("FreQ.exe", "splash.jpg"):
+        if not (dist / name).is_file():
+            problems.append(name)
+    for stem in ("native_audio_meter", "native_audio_output"):
+        if not list(dist.glob(f"{stem}*.pyd")):
+            problems.append(f"{stem}<abi>.pyd")
+    if problems:
+        raise RuntimeError(
+            "PyInstaller bundle is missing: " + ", ".join(problems)
+            + ". Check build.py's data/binary lists and rerun."
+        )
+    print("bundle verified: exe, splash.jpg, native modules present")
+
+
 def find_iscc() -> Path:
     """Find Inno Setup in either Program Files location or PATH."""
     candidates = []
@@ -58,7 +135,9 @@ def find_iscc() -> Path:
 
 def build(app_version: str) -> Path:
     run(sys.executable, "build_native_meter.py")
+    verify_native_meter()
     run(sys.executable, "build.py")
+    verify_bundle()
     run(sys.executable, "create_wizard_images.py")
 
     run(str(find_iscc()), str(INSTALLER))

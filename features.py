@@ -30,6 +30,10 @@ try:
 except ImportError:
     NUMPY_AVAILABLE = False
 
+# Keep feature tools working in packaged builds where FFmpeg is bundled
+# beside the application instead of being present on PATH.
+from player import _ffmpeg_exe, _ffprobe_exe
+
 
 # ═══════════════════════════════════════════════
 # Playback Modes
@@ -214,7 +218,7 @@ class VolumeNormalizer:
         try:
             import subprocess
             result = subprocess.run(
-                ["ffmpeg", "-i", filepath, "-af", "loudnorm=print_format=json", "-f", "null", "-"],
+                [_ffmpeg_exe(), "-i", filepath, "-af", "loudnorm=print_format=json", "-f", "null", "-"],
                 capture_output=True, text=True, timeout=30
             )
             import json
@@ -319,7 +323,7 @@ class AudioEditor:
         try:
             import subprocess
             cmd = [
-                "ffmpeg", "-y", "-i", filepath,
+                _ffmpeg_exe(), "-y", "-i", filepath,
                 "-ss", str(start), "-to", str(end),
                 "-c:a", "libmp3lame", "-q:a", "2",
                 output
@@ -341,7 +345,7 @@ class AudioEditor:
         try:
             import subprocess
             cmd = [
-                "ffmpeg", "-y", "-i", filepath,
+                _ffmpeg_exe(), "-y", "-i", filepath,
                 "-af", f"afade=t=in:ss=0:d={duration}",
                 "-c:a", "libmp3lame", "-q:a", "2", output
             ]
@@ -363,14 +367,14 @@ class AudioEditor:
             import subprocess
             # Get duration first
             probe = subprocess.run(
-                ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                [_ffprobe_exe(), "-v", "error", "-show_entries", "format=duration",
                  "-of", "default=noprint_wrappers=1:nokey=1", filepath],
                 capture_output=True, text=True, timeout=10
             )
             total = float(probe.stdout.strip() or "0")
             fade_start = max(0, total - duration)
             cmd = [
-                "ffmpeg", "-y", "-i", filepath,
+                _ffmpeg_exe(), "-y", "-i", filepath,
                 "-af", f"afade=t=out:st={fade_start}:d={duration}",
                 "-c:a", "libmp3lame", "-q:a", "2", output
             ]
@@ -391,7 +395,7 @@ class AudioEditor:
         try:
             import subprocess
             cmd = [
-                "ffmpeg", "-y", "-i", filepath,
+                _ffmpeg_exe(), "-y", "-i", filepath,
                 "-af", "loudnorm=I=-14:TP=-1:LRA=11",
                 "-c:a", "libmp3lame", "-q:a", "2", output
             ]
@@ -412,7 +416,7 @@ class AudioEditor:
         try:
             import subprocess
             cmd = [
-                "ffmpeg", "-y", "-i", filepath,
+                _ffmpeg_exe(), "-y", "-i", filepath,
                 "-af", f"atempo={speed}",
                 "-c:a", "libmp3lame", "-q:a", "2", output
             ]

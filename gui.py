@@ -713,21 +713,28 @@ class WaveformWidget(tk.Canvas):
             if result.returncode != 0 or not result.stdout:
                 return WaveformWidget._generate_silence(num_samples)
             raw = result.stdout
-            samples = struct.unpack(f"<{len(raw)//2}h", raw)
-            if not samples:
-                return WaveformWidget._generate_silence(num_samples)
-            # Downsample to num_samples
-            chunk_size = max(1, len(samples) // num_samples)
-            waveform = []
-            for i in range(num_samples):
-                start = i * chunk_size
-                end = min(start + chunk_size, len(samples))
-                chunk = samples[start:end]
-                if chunk:
-                    rms = (sum(s*s for s in chunk) / len(chunk)) ** 0.5
-                    waveform.append(rms)
-                else:
-                    waveform.append(0.0)
+
+            # Bucket RMS/peak math: native C++ when available, pure Python
+            # otherwise — no numpy required either way.
+            try:
+                from audio_meter import waveform_peaks
+            except Exception:
+                waveform_peaks = None
+            if waveform_peaks is not None:
+                waveform = waveform_peaks(raw, num_samples)
+            else:
+                samples = struct.unpack(f"<{len(raw)//2}h", raw)
+                chunk_size = max(1, len(samples) // num_samples)
+                waveform = []
+                for i in range(num_samples):
+                    start = i * chunk_size
+                    end = min(start + chunk_size, len(samples))
+                    chunk = samples[start:end]
+                    if chunk:
+                        rms = (sum(s*s for s in chunk) / len(chunk)) ** 0.5
+                        waveform.append(rms)
+                    else:
+                        waveform.append(0.0)
             # Normalize to 0.0-1.0
             peak = max(waveform) if waveform else 1.0
             if peak > 0:
@@ -2187,6 +2194,13 @@ class RadioApp(ctk.CTk):
         self.btn_crossfade.pack(side="left", padx=4)
         ToolTip(self.btn_crossfade, text="Crossfade", description="Toggle crossfade between songs")
 
+        self.btn_auto_cue = ctk.CTkButton(mode_row, text="⏱", width=36, height=30, corner_radius=8,
+            fg_color="transparent", hover_color=COLORS["bg_hover"],
+            font=ctk.CTkFont(size=14),
+            command=self._toggle_auto_cue)
+        self.btn_auto_cue.pack(side="left", padx=4)
+        ToolTip(self.btn_auto_cue, text="Auto-cue", description="Skip silence at the start of each song")
+
         # Right: Device selector + Position
         right_frame = ctk.CTkFrame(inner, fg_color="transparent")
         right_frame.pack(side="right")
@@ -2756,17 +2770,38 @@ class RadioApp(ctk.CTk):
         self.device_var.set("Default")
 
     def _on_device_selected(self, choice: str) -> None:
-        """When user selects a device from dropdown"""
+        """Switch the OS default output device; live playback follows."""
         if not self.audio_mgr.available:
             return
         if choice == "Default":
-            self.audio_mgr.set_device(-1)  # reset to system default
+            if self.audio_mgr.restore_default():
+                self.audio_player.reopen_output()
+                self._show_toast("🔊 Output: system default")
+            else:
+                self._open_sound_settings()
             return
         # Search device by name
         for d in self.audio_mgr.get_output_devices():
             if d.name in choice or choice in d.name:
-                self.audio_mgr.set_device(d.id)
+                switched = (self.audio_mgr.switch_to_endpoint(d.endpoint_id)
+                            if d.endpoint_id else self.audio_mgr.set_device(d.id))
+                if switched:
+                    self.audio_player.reopen_output()
+                    self._show_toast(f"🔊 Output: {d.name[:40]}")
+                else:
+                    # Some Windows builds (trimmed images) lack the PolicyConfig
+                    # class entirely — send the user to the Settings page.
+                    self._show_toast("⚠️ Windows นี้สลับลำโพงอัตโนมัติไม่ได้ — เปิด Settings ให้แล้ว")
+                    self._open_sound_settings()
                 break
+
+    def _open_sound_settings(self) -> None:
+        """Open the Windows sound settings page (manual output picker)."""
+        try:
+            import os
+            os.startfile("ms-settings:sound")  # noqa: S606 — user-initiated
+        except Exception:
+            pass
 
     # ═══════════════════════════════════════
     # Volume Control
@@ -3335,6 +3370,16 @@ class RadioApp(ctk.CTk):
         self.btn_crossfade.configure(fg_color=COLORS["accent"] if self.crossfade.enabled else "transparent",
                                      text_color="#fff" if self.crossfade.enabled else COLORS["text"])
 
+    def _toggle_auto_cue(self) -> None:
+        self._auto_cue = not getattr(self, "_auto_cue", False)
+        self.audio_player.auto_cue = self._auto_cue
+        self.btn_auto_cue.configure(
+            fg_color=COLORS["accent"] if self._auto_cue else "transparent",
+            text_color="#fff" if self._auto_cue else COLORS["text"],
+        )
+        if self._auto_cue:
+            self._show_toast("⏱ Auto-cue on — silence at the start of each song is skipped")
+
     # ═════════════════════════════════════════
     # Visualizer
     # ═════════════════════════════════════════
@@ -3347,6 +3392,7 @@ class RadioApp(ctk.CTk):
             )
             self.visualizer.pack(side="left", padx=10, pady=5)
             self.visualizer.start()
+            self.after(50, self._update_visualizer)
         else:
             if self.visualizer.canvas.winfo_viewable():
                 self.visualizer.stop()
@@ -3354,16 +3400,13 @@ class RadioApp(ctk.CTk):
             else:
                 self.visualizer.canvas.pack(side="left", padx=10, pady=5)
                 self.visualizer.start()
+                self.after(50, self._update_visualizer)
 
     def _update_visualizer(self) -> None:
-        """Update visualizer with current audio data."""
+        """Update visualizer with live spectrum from the PCM tap."""
         if self.visualizer and self.visualizer.canvas.winfo_viewable():
-            # Get audio data from player
             try:
-                if hasattr(self.audio_player, 'get_audio_data'):
-                    data = self.audio_player.get_audio_data()
-                    if data:
-                        self.visualizer.update_spectrum(data)
+                self.visualizer.update_pcm(audio_meter.latest_pcm(4096))
             except Exception:
                 pass
             self.after(50, self._update_visualizer)
@@ -3507,6 +3550,46 @@ class RadioApp(ctk.CTk):
         messagebox.showinfo("Success", f"💾 Saved: {Path(path).name}")
 
     # ── Settings save/restore ──
+    def _collect_audio_output(self) -> dict:
+        """Remember the selected output speaker for the .freq preset."""
+        try:
+            device = self.audio_mgr.get_selected_device()
+        except Exception:
+            device = None
+        return {
+            "endpoint_id": getattr(device, "endpoint_id", None),
+            "name": getattr(device, "name", None),
+        }
+
+    def _apply_remembered_output(self, ao: dict) -> None:
+        """Re-apply the output speaker remembered in a .freq preset."""
+        if not ao:
+            return
+        endpoint_id = ao.get("endpoint_id")
+        name = ao.get("name")
+        if not endpoint_id and not name:
+            return
+        # Already on the remembered speaker? Skip the switch entirely.
+        try:
+            current = self.audio_mgr.get_selected_device()
+        except Exception:
+            current = None
+        if current and endpoint_id and getattr(current, "endpoint_id", None) == endpoint_id:
+            return
+        switched = False
+        if endpoint_id and self.audio_mgr.wasapi_available:
+            switched = self.audio_mgr.switch_to_endpoint(endpoint_id)
+        if not switched and name:
+            # Endpoint may have been replugged with a new id — match by name.
+            switched = self.audio_mgr.switch_by_name(name)
+        if switched:
+            self.audio_player.reopen_output()
+        # Keep the dropdown in sync with the (possibly new) default.
+        try:
+            self._refresh_device_list()
+        except Exception:
+            pass
+
     def _collect_settings(self) -> dict:
         """Collect all current settings into a serializable dict."""
         # Playback position
@@ -3516,6 +3599,7 @@ class RadioApp(ctk.CTk):
         return {
             "volume": self.volume_var.get(),
             "playback_position": pos,
+            "audio_output": self._collect_audio_output(),
             "jingle": {
                 "enabled": self.jingle.enabled,
                 "jingle_file": self.jingle.jingle_file,
@@ -3553,6 +3637,7 @@ class RadioApp(ctk.CTk):
                 "fade_in": self.crossfade.fade_in,
                 "fade_out": self.crossfade.fade_out,
             },
+            "auto_cue": getattr(self, "_auto_cue", False),
             "anthem": self.anthem.config.to_dict(),
             "stream": {
                 "name": self.stream_name.get() if hasattr(self, 'stream_name') else "FreQ Radio",
@@ -3594,6 +3679,11 @@ class RadioApp(ctk.CTk):
         self.volume_slider.set(vol)
         self.volume_label.configure(text=f"{int(vol)}%")
         self._on_volume_change(vol)
+        # Remembered output speaker
+        try:
+            self._apply_remembered_output(settings.get("audio_output", {}))
+        except Exception:
+            pass
         # Jingle
         j = settings.get("jingle", {})
         if j:
@@ -3665,6 +3755,15 @@ class RadioApp(ctk.CTk):
             self.crossfade.duration = x.get("duration", 3.0)
             self.crossfade.fade_in = x.get("fade_in", True)
             self.crossfade.fade_out = x.get("fade_out", True)
+        # Auto-cue (skip leading silence)
+        ac = bool(settings.get("auto_cue", False))
+        self._auto_cue = ac
+        self.audio_player.auto_cue = ac
+        if hasattr(self, "btn_auto_cue"):
+            self.btn_auto_cue.configure(
+                fg_color=COLORS["accent"] if ac else "transparent",
+                text_color="#fff" if ac else COLORS["text"],
+            )
         # Anthem
         a = settings.get("anthem", {})
         if a:
@@ -5627,118 +5726,195 @@ class RadioApp(ctk.CTk):
 # Splash Screen
 # ═══════════════════════════════════════════════════════════════
 
+def _splash_version() -> str:
+    """Read the canonical version from installer.iss (fallback: dev)."""
+    try:
+        import re
+        content = Path(__file__).with_name("installer.iss").read_text(encoding="utf-8")
+        match = re.search(r'^\s*#define\s+MyAppVersion\s+"([^"]+)"', content, re.MULTILINE)
+        if match:
+            return match.group(1)
+    except Exception:
+        pass
+    return "dev"
+
+
 class FreQSplash(ctk.CTkToplevel):
-    """Splash screen shown during app startup"""
+    """Broadcast-style startup splash.
+
+    Layout (720x540 — the same 4:3 aspect as the 800x600 splash.jpg):
+      - The photo fills the whole window; a left-to-right gradient scrim
+        fades it into the panel color so the text column stays readable
+        and the composition stays balanced (no squeezed image strip).
+      - Overlaid left: animated equalizer logo, product name + version,
+        STARTING UP status line, thin progress bar and the license note.
+    """
+
+    SPLASH_W = 720
+    SPLASH_H = 540
+
+    BG = "#14181f"
+    PANEL = "#10141b"
+    ACCENT = "#58a6ff"
+    TEXT = "#e8edf4"
+    TEXT_DIM = "#5a6478"
+
+    STATUS_LINES = (
+        "STARTING UP",
+        "Initializing audio engine",
+        "Loading playlist cache",
+        "Detecting audio devices",
+        "Preparing stream modules",
+        "Almost ready",
+    )
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.overrideredirect(True)  # borderless
-        self.configure(fg_color="#0a0e14")
+        self.configure(fg_color=self.BG)
         self.attributes("-topmost", True)
 
-        # Size and center on screen
+        w, h = self.SPLASH_W, self.SPLASH_H
         sw = self.winfo_screenwidth()
         sh = self.winfo_screenheight()
-        w, h = 420, 320
-        x = (sw - w) // 2
-        y = (sh - h) // 2
-        self.geometry(f"{w}x{h}+{x}+{y}")
+        self.geometry(f"{w}x{h}+{(sw - w) // 2}+{(sh - h) // 2}")
 
-        # Rounded corners via frame
-        outer = ctk.CTkFrame(self, fg_color="#131920", corner_radius=16)
-        outer.pack(fill="both", expand=True, padx=2, pady=2)
+        # ── Full-bleed product photo + left gradient scrim ──
+        # splash.jpg is 800x600 and the window is 720x540: the same 4:3
+        # aspect, so the photo covers the window with zero distortion.
+        # A panel-colored gradient fades the photo out under the text
+        # column (DaVinci-style) instead of squeezing it into a strip.
+        self._photo = None  # keep a reference alive or Tk drops the image
+        image_path = Path(__file__).with_name("splash.jpg")
+        if image_path.is_file():
+            try:
+                from PIL import Image, ImageTk
 
-        # Logo
-        logo_frame = ctk.CTkFrame(outer, fg_color="transparent")
-        logo_frame.pack(expand=True)
+                img = Image.open(image_path).convert("RGBA")
+                img = img.resize((w, h), Image.LANCZOS)
+                # Light uniform tint so a busy photo never fights the text.
+                base = Image.alpha_composite(
+                    img, Image.new("RGBA", (w, h), (16, 20, 27, 55))
+                )
+                # Horizontal scrim: near-solid panel color on the left
+                # half, easing to a light veil on the right.
+                grad = Image.new("L", (w, 1))
+                for x in range(w):
+                    t = x / max(1, w - 1)
+                    if t <= 0.50:
+                        a = 252
+                    elif t >= 0.80:
+                        a = 55
+                    else:
+                        a = int(252 + (55 - 252) * ((t - 0.50) / 0.30))
+                    grad.putpixel((x, 0), a)
+                scrim = Image.new("RGBA", (w, h), (16, 20, 27, 0))
+                scrim.putalpha(grad.resize((w, h)))
+                base = Image.alpha_composite(base, scrim)
+                self._photo = ImageTk.PhotoImage(
+                    base.convert("RGB"), master=self
+                )
+                tk.Label(
+                    self, image=self._photo, bg=self.BG, borderwidth=0
+                ).place(x=0, y=0)
+            except Exception:
+                self._photo = None
 
-        # Animated equalizer bars
-        bars_frame = ctk.CTkFrame(logo_frame, fg_color="transparent")
-        bars_frame.pack(pady=(20, 10))
-        self._bars = []
-        bar_heights = [18, 28, 36, 24, 40, 20, 32]
-        bar_colors = ["#58a6ff", "#79b8ff", "#bc8cff", "#f778ba", "#bc8cff", "#79b8ff", "#58a6ff"]
-        for i, (bh, bc) in enumerate(zip(bar_heights, bar_colors)):
-            bar = ctk.CTkFrame(bars_frame, width=14, height=bh, fg_color=bc, corner_radius=4)
-            bar.pack(side="left", padx=3)
-            bar.pack_propagate(False)
-            self._bars.append((bar, bh))
+        # ── Left column (over the photo's scrimmed area) ──
+        left_w = int(w * 0.56)
+        left = ctk.CTkFrame(
+            self,
+            fg_color="transparent" if self._photo else self.PANEL,
+            width=left_w, height=self.SPLASH_H, corner_radius=0,
+        )
+        left.place(x=0, y=0)
+        left.pack_propagate(False)
 
-        # App name
+        # Animated logo: equalizer bars on a canvas (cheap and smooth).
+        self._logo = FreQLogoCanvas(left, width=120, height=64,
+                                    bar_color=self.ACCENT, bg=self.PANEL)
+        self._logo.pack(pady=(96, 18))
+
         ctk.CTkLabel(
-            logo_frame, text="FreQ",
-            font=ctk.CTkFont(size=32, weight="bold"),
-            text_color="#58a6ff",
-        ).pack(pady=(8, 2))
-
-        ctk.CTkLabel(
-            logo_frame, text="Radio Playlist Manager",
-            font=ctk.CTkFont(size=12),
-            text_color="#4e5769",
+            left, text="FreQ",
+            font=ctk.CTkFont(size=44, weight="bold"),
+            text_color=self.TEXT,
         ).pack()
 
-        # Loading bar
-        self._progress = 0.0
-        self._progress_bar = ctk.CTkProgressBar(
-            outer, width=300, height=4,
-            fg_color="#1a2230",
-            progress_color="#58a6ff",
-            corner_radius=2,
-        )
-        self._progress_bar.pack(pady=(10, 6))
-        self._progress_bar.set(0)
+        ctk.CTkLabel(
+            left, text="Radio Playlist Manager  ·  v" + _splash_version(),
+            font=ctk.CTkFont(size=12),
+            text_color=self.TEXT_DIM,
+        ).pack(pady=(2, 0))
+
+        # Bottom block: status + progress, aligned like the reference art.
+        status_block = ctk.CTkFrame(left, fg_color="transparent")
+        status_block.pack(side="bottom", fill="x", padx=36, pady=(0, 44))
 
         self._status_label = ctk.CTkLabel(
-            outer, text="Loading...",
-            font=ctk.CTkFont(size=10),
-            text_color="#4e5769",
+            status_block,
+            text=self.STATUS_LINES[0].upper(),
+            font=ctk.CTkFont(size=10, weight="bold"),
+            text_color=self.TEXT_DIM,
+            anchor="w",
         )
-        self._status_label.pack(pady=(0, 16))
+        self._status_label.pack(fill="x", pady=(0, 8))
 
-        # Start animation
-        self._animate_bars(0)
+        self._progress = 0.0
+        self._progress_bar = ctk.CTkProgressBar(
+            status_block, width=left_w - 72, height=3,
+            fg_color="#232b3a",
+            progress_color=self.ACCENT,
+            corner_radius=1,
+        )
+        self._progress_bar.set(0)
+        self._progress_bar.pack(fill="x", pady=(0, 10))
+
+        ctk.CTkLabel(
+            status_block,
+            text="FREE & OPEN-SOURCE SOFTWARE · GPL-3.0",
+            font=ctk.CTkFont(size=8),
+            text_color=self.TEXT_DIM,
+            anchor="w",
+        ).pack(fill="x")
+
+        # Start animations
+        self._animate_bars()
         self._tick()
 
-    def _animate_bars(self, step: int) -> None:
-        """Animate equalizer bars up and down"""
-        import random
-        for bar, base_h in self._bars:
-            new_h = max(12, base_h + random.randint(-10, 10))
-            bar.configure(height=new_h)
-        self._bar_step = step
-        self._bar_job = self.after(150, lambda: self._animate_bars(step + 1))
+    # ── Animation ──
+
+    def _animate_bars(self) -> None:
+        self._logo.step()
+        self._bar_job = self.after(120, self._animate_bars)
 
     def _tick(self) -> None:
-        """Advance progress bar"""
-        self._progress += 0.02
+        """Advance the startup progress and status line."""
+        self._progress += 0.014
+        steps = len(self.STATUS_LINES)
         if self._progress >= 1.0:
-            self._progress = 1.0
             self._progress_bar.set(1.0)
-            self._status_label.configure(text="Ready!")
+            self._status_label.configure(text="READY")
             self.after(300, self._finish)
             return
         self._progress_bar.set(self._progress)
-        # Status messages
-        if self._progress < 0.3:
-            self._status_label.configure(text="Initializing audio engine...")
-        elif self._progress < 0.6:
-            self._status_label.configure(text="Loading playlist cache...")
-        elif self._progress < 0.85:
-            self._status_label.configure(text="Detecting audio devices...")
-        else:
-            self._status_label.configure(text="Almost ready...")
-        self.after(30, self._tick)
+        idx = min(steps - 1, int(self._progress * steps))
+        self._status_label.configure(text=self.STATUS_LINES[idx].upper())
+        self._tick_job = self.after(30, self._tick)
 
     def _finish(self) -> None:
-        """Fade out splash then call the completion callback"""
+        """Fade out splash then call the completion callback."""
         self._fading = True
         self._fade_step(0.9)
 
     def _fade_step(self, alpha: float) -> None:
         if alpha <= 0.1:
-            # Done fading — fire callback
             try:
                 self.after_cancel(self._bar_job)
+            except Exception:
+                pass
+            try:
+                self.after_cancel(self._tick_job)
             except Exception:
                 pass
             cb = getattr(self, '_on_done', None)
@@ -5749,8 +5925,48 @@ class FreQSplash(ctk.CTkToplevel):
         self.after(30, lambda: self._fade_step(alpha - 0.15))
 
     def on_complete(self, callback) -> None:
-        """Set callback for when splash finishes"""
+        """Set callback for when splash finishes."""
         self._on_done = callback
+
+
+class FreQLogoCanvas(tk.Canvas):
+    """Animated FreQ logo mark: equalizer bars with a travelling wave."""
+
+    def __init__(self, parent, width=120, height=64,
+                 bar_color="#58a6ff", bg="#10141b"):
+        super().__init__(parent, width=width, height=height,
+                         bg=bg, highlightthickness=0)
+        self._h = height
+        self._phase = 0.0
+        n = 9
+        gap = 4
+        bar_w = 5
+        total = n * bar_w + (n - 1) * gap
+        x0 = (width - total) // 2
+        mid = height // 2
+        self._base = [0.35, 0.55, 0.8, 1.0, 0.7, 1.0, 0.8, 0.55, 0.35]
+        self._bars = []
+        for i in range(n):
+            x = x0 + i * (bar_w + gap)
+            rect = self.create_rectangle(
+                x, mid - 4, x + bar_w, mid + 4,
+                fill=bar_color, outline="", width=0,
+            )
+            self._bars.append((rect, x, x + bar_w, self._base[i]))
+
+    def step(self) -> None:
+        """Advance one animation frame: a travelling wave over the bars."""
+        self._phase += 0.45
+        mid = self._h // 2
+        for i, (rect, x0, x1, base) in enumerate(self._bars):
+            wave = 0.5 + 0.5 * math.sin(self._phase - i * 0.55)
+            amp = base * (0.25 + 0.75 * wave)
+            half = max(2, int(amp * (mid - 4)))
+            self.coords(rect, x0, mid - half, x1, mid + half)
+            # Blue that brightens toward white with the wave.
+            r = int(0x58 + wave * (0xE8 - 0x58))
+            g = int(0xA6 + wave * (0xF0 - 0xA6))
+            self.itemconfigure(rect, fill=f"#{r:02x}{g:02x}ff")
 
 
 # ═══════════════════════════════════════════════════════════════

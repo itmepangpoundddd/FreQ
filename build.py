@@ -82,7 +82,7 @@ def build(debug=False):
 
     # Add data files
     datas = []
-    for f in ["logo.png", "logo.svg", "logo.ico"]:
+    for f in ["logo.png", "logo.svg", "logo.ico", "splash.jpg"]:
         p = ROOT / f
         if p.exists():
             datas.append(f"{p};.")
@@ -90,11 +90,14 @@ def build(debug=False):
     if templates.exists():
         datas.append(f"{templates};templates")
 
-    # Optional C++ PCM meter. The pure-Python implementation remains available
-    # when this extension has not been compiled on the build machine.
-    native_meter = ROOT / "native_audio_meter.cp314-win_amd64.pyd"
-    if native_meter.exists():
-        cmd.extend(["--add-binary", f"{native_meter};."])
+    # Optional C++ extensions. The pure-Python implementations remain
+    # available when these have not been compiled on the build machine.
+    import sysconfig
+    ext_suffix = sysconfig.get_config_var("EXT_SUFFIX")
+    for stem in ("native_audio_meter", "native_audio_output"):
+        native = ROOT / f"{stem}{ext_suffix}"
+        if native.exists():
+            cmd.extend(["--add-binary", f"{native};."])
 
     for d in datas:
         cmd.extend(["--add-data", d])

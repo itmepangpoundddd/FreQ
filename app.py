@@ -10,7 +10,7 @@ import json
 import threading
 from pathlib import Path
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, send_from_directory
 
 from radio_manager import (
     RadioQueue,
@@ -48,7 +48,27 @@ def index():
 @app.route("/site")
 def landing():
     """Public FreQ product landing page."""
-    return render_template("landing.html")
+    return render_template("in.html")
+
+
+@app.route("/assets/<path:filename>")
+def landing_asset(filename):
+    """Serve assets used by the public landing page."""
+    asset_dir = Path(__file__).parent / "templates" / "landing_asset"
+    asset = asset_dir / filename
+    if asset.is_file():
+        return send_from_directory(asset_dir, filename)
+    # Keep root-level branding as a fallback for older checkouts.
+    if filename in {"logo.svg", "logo.png", "logo.ico"}:
+        return send_from_directory(Path(__file__).parent, filename)
+    return send_from_directory(asset_dir, filename)
+
+
+@app.route("/landing_asset/<path:filename>")
+def landing_asset_legacy(filename):
+    """Serve the same landing assets using their project-relative path."""
+    asset_dir = Path(__file__).parent / "templates" / "landing_asset"
+    return send_from_directory(asset_dir, filename)
 
 
 # ──────────────────────────────────────────────

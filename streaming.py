@@ -31,7 +31,7 @@ from dataclasses import dataclass, field
 from typing import Optional, Callable
 from urllib.parse import quote, urlparse
 
-from audio_meter import meter as audio_meter
+from audio_meter import LoudnessNormalizer, meter as audio_meter
 
 logger = logging.getLogger("freq.streaming")
 
@@ -119,6 +119,11 @@ class StreamConfig:
     channels: int = 2
     codec: str = "mp3"                 # mp3, aac, ogg, opus
 
+    # Loudness normalization (BS.1770-4, measured on the PCM tap)
+    loudness_enabled: bool = False
+    loudness_target_lufs: float = -16.0
+    loudness_max_gain_db: float = 12.0
+
     # WebRTC settings
     webrtc_ice_servers: list[str] = field(default_factory=lambda: ["stun:stun.l.google.com:19302"])
 
@@ -176,6 +181,11 @@ class FFmpegStreamer:
         self._current_stream_file: Optional[str] = None
         self._stream_title: str = ""
         self._stream_artist: str = ""
+        self._loudness = LoudnessNormalizer(
+            sample_rate=config.sample_rate,
+            target_lufs=config.loudness_target_lufs,
+            max_gain_db=config.loudness_max_gain_db,
+        )
 
     @property
     def state(self) -> StreamState:
@@ -326,6 +336,10 @@ class FFmpegStreamer:
         self._stream_title = title
         self._stream_artist = artist
         self._update_icecast_metadata(title, artist)
+        if self._loudness is not None:
+            # Per-track loudness history would bias the measurement once the
+            # program changes; start fresh for each new track.
+            self._loudness.reset()
 
     def _update_icecast_metadata(self, title: str, artist: str = "") -> None:
         """Update Icecast stream metadata via admin API."""
@@ -360,6 +374,14 @@ class FFmpegStreamer:
             return
         if self.config.channels == 2:
             audio_meter.publish_s16le_stereo(data)
+        if (
+            self.config.channels == 2
+            and self.config.loudness_enabled
+            and self._loudness is not None
+        ):
+            gain = self._loudness.write(data)
+            if gain != 1.0:
+                data = process_s16le_stereo(data, gain, gain)
         try:
             self._pcm_queue.put_nowait(data)
         except queue.Full:

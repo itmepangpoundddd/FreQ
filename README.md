@@ -56,9 +56,33 @@ python radio_manager.py
 
 ## Native Audio Meter
 
-The optional C++ extension calculates stereo RMS and Peak levels and applies
-per-channel gain and limiting to PCM audio. Python automatically falls back to
-the portable implementation if the native extension is unavailable.
+The optional C++ extension calculates stereo RMS and Peak levels, applies
+per-channel gain and limiting to PCM audio, computes 32 log-frequency spectrum
+bars for the visualizer (iterative radix-2 FFT, no numpy needed), aggregates
+waveform peaks for the waveform display, converts legacy sample lists to PCM
+(`samples_to_stereo_pcm`), detects leading/trailing silence for auto-cue
+(`find_silence_end`), and measures BS.1770-4 K-weighted
+loudness with histogram gating for real-time stream normalization. A second
+module (`native_audio_output`) manages output devices through WASAPI: it
+enumerates render endpoints and switches the OS default speaker, so the whole
+system (pygame playback included) follows the dropdown selection. Python
+automatically falls back to the portable implementation (same algorithms) if
+the native extension is unavailable; on Windows builds without the
+PolicyConfig class, the app opens the system sound settings instead.
+
+Auto-cue skips silent heads so every track starts right at the music. Toggle
+it with the ⏱ button in the playback controls (the choice is saved to the
+`.freq` preset); detection is measured once per file and cached, then the
+head is trimmed with the same ffmpeg mechanism seek uses.
+
+When `loudness_enabled` is set on the streaming configuration, FreQ measures
+the integrated loudness of the program being streamed and smoothly retunes a
+gain stage so the broadcast lands on the target LUFS — no per-file
+`ffmpeg loudnorm` passes are needed. Enable it in code with:
+
+```python
+streamer.configure(loudness_enabled=True, loudness_target_lufs=-16.0)
+```
 
 On Windows, install Visual Studio Build Tools with a Windows SDK, then run:
 

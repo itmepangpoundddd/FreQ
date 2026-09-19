@@ -2,72 +2,59 @@
 """
 Real-time Audio Visualizer for FreQ
 Displays spectrum analyzer while playing audio.
+
+Primary input is raw s16le stereo PCM (fed from the streaming engine through
+audio_meter). FFT computation happens in the native C++ module when available
+and falls back to pure Python otherwise, so the visualizer works without numpy.
 """
 
 from __future__ import annotations
 
 import math
-import struct
 import threading
+import time
 import tkinter as tk
 from collections import deque
-from typing import Optional
 
-try:
-    import numpy as np
-    NUMPY_AVAILABLE = True
-except ImportError:
-    NUMPY_AVAILABLE = False
+from audio_meter import compute_spectrum, samples_to_stereo_pcm
 
 
 class SpectrumAnalyzer:
-    """Audio spectrum analyzer using FFT."""
-    
+    """Audio spectrum analyzer working on raw PCM bytes."""
+
     def __init__(self, sample_rate: int = 44100, buffer_size: int = 1024):
         self.sample_rate = sample_rate
         self.buffer_size = buffer_size
         self.bins = buffer_size // 2
-        self._window = self._hann_window(buffer_size)
-    
-    @staticmethod
-    def _hann_window(size: int):
-        """Create Hann window function for FFT."""
-        if NUMPY_AVAILABLE:
-            return np.hanning(size)
-        return [0.5 * (1 - math.cos(2 * math.pi * i / size)) for i in range(size)]
-    
+
+    def compute_from_pcm(self, audio_data: bytes) -> list[float]:
+        """Compute 32 log-frequency bars (0.0-1.0) from s16le stereo PCM."""
+        if not audio_data:
+            return [0.0] * 32
+        try:
+            return compute_spectrum(audio_data)
+        except Exception:
+            return [0.0] * 32
+
     def compute_spectrum(self, audio_data) -> list[float]:
-        """
-        Compute frequency spectrum from audio samples.
-        Returns list of magnitudes (0-1 normalized).
-        """
-        if NUMPY_AVAILABLE:
-            data = np.array(audio_data, dtype=np.float64)
-            if len(data) < self.buffer_size:
-                data = np.pad(data, (0, self.buffer_size - len(data)))
-            else:
-                data = data[:self.buffer_size]
-            
-            # Apply window
-            windowed = data * self._window
-            
-            # FFT
-            fft = np.fft.rfft(windowed)
-            magnitudes = np.abs(fft)
-            
-            # Normalize
-            if magnitudes.max() > 0:
-                magnitudes = magnitudes / magnitudes.max()
-            
-            return magnitudes.tolist()
-        else:
-            # Simple fallback without numpy
-            return [0.0] * (self.buffer_size // 2 + 1)
+        """Legacy entry point — accepts PCM bytes or an iterable of samples."""
+        if isinstance(audio_data, (bytes, bytearray, memoryview)):
+            return self.compute_from_pcm(bytes(audio_data))
+        # Legacy path: list of float samples → s16le stereo PCM. The
+        # quantization/clipping happens in C++ when the native module is
+        # available (one pass, no per-sample Python loop).
+        try:
+            stereo = samples_to_stereo_pcm(
+                list(audio_data)[: self.buffer_size]
+            )
+        except Exception:
+            return [0.0] * 32
+        return self.compute_from_pcm(stereo)
 
 
 class VisualizerWidget:
     """Tkinter canvas widget for audio visualization."""
-    
+
     def __init__(self, parent, width: int = 800, height: int = 200,
                  bar_count: int = 32, theme: dict = None):
         self.width = width
@@ -80,26 +67,28 @@ class VisualizerWidget:
             "bar3": "#f778ba",
             "peak": "#ffffff",
         }
-        
+
         self.canvas = tk.Canvas(
             parent, width=width, height=height,
             bg=self.theme["bg"], highlightthickness=0
         )
-        
+
         # Bar state for smooth animation
         self._bar_values = [0.0] * bar_count
         self._bar_peaks = [0.0] * bar_count
         self._peak_hold = [0] * bar_count
         self._spectrum = SpectrumAnalyzer()
-        
+        self._last_update = 0.0
+        self._lock = threading.Lock()
+
         # Gradient colors for bars
         self._colors = self._create_gradient(bar_count)
-        
+
         # Animation
         self._running = False
         self._fps = 60
         self._frame_time = 1000 // self._fps
-    
+
     def _create_gradient(self, count: int) -> list[str]:
         """Create gradient colors for bars."""
         colors = []
@@ -117,54 +106,77 @@ class VisualizerWidget:
                 b = int(255 + (186 - 255) * ((ratio - 0.5) * 2))
             colors.append(f"#{r:02x}{g:02x}{b:02x}")
         return colors
-    
+
     def pack(self, **kwargs):
         """Pack the canvas widget."""
         self.canvas.pack(**kwargs)
-    
+
     def grid(self, **kwargs):
         """Grid the canvas widget."""
         self.canvas.grid(**kwargs)
-    
+
+    def update_pcm(self, pcm_bytes: bytes) -> None:
+        """Update bars from raw s16le stereo PCM (preferred entry point)."""
+        raw = self._spectrum.compute_from_pcm(pcm_bytes)
+        self._apply_bars(raw)
+
     def update_spectrum(self, audio_samples):
-        """Update spectrum with new audio data."""
+        """Update spectrum with new audio data (bytes or legacy samples)."""
+        if isinstance(audio_samples, (bytes, bytearray, memoryview)):
+            self.update_pcm(bytes(audio_samples))
+            return
         raw = self._spectrum.compute_spectrum(audio_samples)
-        
-        # Downsample to bar_count
-        if len(raw) > self.bar_count:
-            step = len(raw) // self.bar_count
+        self._apply_bars(raw)
+
+    def _apply_bars(self, raw: list[float]) -> None:
+        """Merge computed band values into the animated bar state."""
+        if not raw:
+            return
+        with self._lock:
+            self._last_update = time.monotonic()
+            # Upsample/downsample the computed bands to the widget bar count.
+            step = len(raw) / self.bar_count
             for i in range(self.bar_count):
-                chunk = raw[i * step:(i + 1) * step]
-                target = sum(chunk) / len(chunk) if chunk else 0
+                lo = int(i * step)
+                hi = max(lo + 1, int((i + 1) * step))
+                target = max(raw[lo:hi]) if lo < len(raw) else 0.0
                 # Smooth attack, faster decay
                 if target > self._bar_values[i]:
                     self._bar_values[i] = target * 0.8 + self._bar_values[i] * 0.2
                 else:
                     self._bar_values[i] = target * 0.3 + self._bar_values[i] * 0.7
-    
+
+    def _decay_if_stale(self) -> None:
+        """Let bars fall smoothly when no audio has arrived recently."""
+        with self._lock:
+            if time.monotonic() - self._last_update > 0.15:
+                for i in range(self.bar_count):
+                    self._bar_values[i] *= 0.85
+
     def _draw(self):
         """Draw the spectrum bars."""
+        self._decay_if_stale()
         self.canvas.delete("all")
-        
+
         bar_width = max(1, (self.width - (self.bar_count + 1) * 2) // self.bar_count)
         gap = 2
         max_bar_height = self.height - 20
-        
+
         for i in range(self.bar_count):
             x = i * (bar_width + gap) + gap
             value = min(1.0, self._bar_values[i])
             bar_height = int(value * max_bar_height)
-            
+
             # Draw bar
             y_top = self.height - bar_height - 10
             y_bottom = self.height - 10
-            
+
             if bar_height > 0:
                 self.canvas.create_rectangle(
                     x, y_top, x + bar_width, y_bottom,
                     fill=self._colors[i], outline=""
                 )
-            
+
             # Draw peak
             if value > self._bar_peaks[i]:
                 self._bar_peaks[i] = value
@@ -174,7 +186,7 @@ class VisualizerWidget:
                     self._peak_hold[i] -= 1
                 else:
                     self._bar_peaks[i] = max(0, self._bar_peaks[i] - 0.02)
-            
+
             peak_height = int(self._bar_peaks[i] * max_bar_height)
             if peak_height > 0:
                 peak_y = self.height - peak_height - 10
@@ -182,27 +194,28 @@ class VisualizerWidget:
                     x, peak_y - 2, x + bar_width, peak_y,
                     fill=self.theme["peak"], outline=""
                 )
-    
+
     def start(self):
         """Start the visualization animation."""
         self._running = True
         self._animate()
-    
+
     def stop(self):
         """Stop the visualization animation."""
         self._running = False
-    
+
     def _animate(self):
         """Animation loop."""
         if not self._running:
             return
-        
+
         self._draw()
         self.canvas.after(self._frame_time, self._animate)
-    
+
     def clear(self):
         """Clear the display."""
-        self._bar_values = [0.0] * self.bar_count
-        self._bar_peaks = [0.0] * self.bar_count
-        self._peak_hold = [0] * self.bar_count
+        with self._lock:
+            self._bar_values = [0.0] * self.bar_count
+            self._bar_peaks = [0.0] * self.bar_count
+            self._peak_hold = [0] * self.bar_count
         self._draw()
