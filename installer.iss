@@ -6,7 +6,7 @@
 ; ═══════════════════════════════════════════════════════════════
 
 #define MyAppName "FreQ"
-#define MyAppVersion "2.5.46"
+#define MyAppVersion "2.5.47"
 #define MyAppPublisher "SocieticsTv Broadcasting & Network"
 #define MyAppURL "https://github.com/SocieticsTv/freq"
 #define MyAppExeName "FreQ.exe"

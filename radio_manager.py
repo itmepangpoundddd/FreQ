@@ -32,7 +32,7 @@ from datetime import timedelta
 from enum import Enum, auto
 from pathlib import Path
 from typing import Optional
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from features import PlaybackModes, RepeatMode
 
 # Safe print: wraps stdout to handle Unicode errors in --noconsole mode
@@ -161,6 +161,7 @@ class YouTubeManager:
             raise RuntimeError(
                 "yt-dlp not installed. Run: pip install yt-dlp"
             )
+        url = cls.normalize_playlist_url(url)
         songs: list[Song] = []
         try:
             with yt_dlp.YoutubeDL({
@@ -205,10 +206,31 @@ class YouTubeManager:
         return songs
 
     @classmethod
+    def normalize_playlist_url(cls, url: str) -> str:
+        """Convert a watch?v=...&list=... URL into a pure playlist URL.
+
+        yt-dlp treats watch URLs with a list parameter as a single video,
+        which yields zero entries when counting playlist contents.
+        """
+        url = url.strip()
+        try:
+            parsed = urlparse(url)
+        except ValueError:
+            return url
+        qs = parse_qs(parsed.query)
+        list_ids = qs.get("list")
+        if not list_ids or not list_ids[0]:
+            return url
+        # Keep only the list parameter -> pure playlist URL
+        return urlunparse(("https", "www.youtube.com", "/playlist",
+                           "", urlencode({"list": list_ids[0]}), ""))
+
+    @classmethod
     def count_playlist(cls, url: str) -> tuple[int, list[dict]]:
         """Fast: count songs and return flat entries (no detail fetch). Returns (count, entries)"""
         if not cls.is_available():
             raise RuntimeError("yt-dlp not installed")
+        url = cls.normalize_playlist_url(url)
         try:
             with yt_dlp.YoutubeDL({
                 **cls._BASE_OPTS,

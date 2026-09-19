@@ -2890,7 +2890,10 @@ class RadioApp(ctk.CTk):
             messagebox.showerror("Error", "yt-dlp not installed\nRun: pip install yt-dlp")
             return
         if YouTubeManager.is_playlist_url(url):
-            messagebox.showinfo("Info", "Looks like a playlist. Use the 'Add Playlist' button instead")
+            # Auto-route to the playlist flow (watch?v=..&list=.. supported)
+            self.yt_playlist_entry.delete(0, "end")
+            self.yt_playlist_entry.insert(0, url)
+            self._add_youtube_playlist()
             return
 
         self.btn_yt_add.configure(state="disabled", text="⏳ Loading...")
@@ -2935,7 +2938,11 @@ class RadioApp(ctk.CTk):
             try:
                 count, entries = YouTubeManager.count_playlist(url)
                 if count == 0:
-                    self.after(0, lambda: messagebox.showerror("Error", "No videos found in playlist"))
+                    self.after(0, lambda: messagebox.showerror(
+                        "Error",
+                        "No videos found in playlist\n\n"
+                        "The playlist may be empty, private, or deleted.\n"
+                        "Check that the link opens in a browser while logged out."))
                     return
                 # Show popup on main thread, then fetch range
                 self.after(0, lambda: self._show_playlist_dialog(url, count, entries))
