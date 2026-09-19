@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FreQ Installer Preview</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+  .phone-frame { display: flex; gap: 30px; flex-wrap: wrap; justify-content: center; }
+  .wizard { width: 500px; background: #f0f0f0; border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); overflow: hidden; margin: 10px; }
+  .wizard-header { background: linear-gradient(135deg, #0a0e14 0%, #1a2230 100%); padding: 20px 25px; color: white; border-bottom: 3px solid #1f6feb; }
+  .wizard-header h2 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+  .wizard-header p { font-size: 12px; color: #8b949e; }
+  .wizard-body { padding: 25px; min-height: 280px; display: flex; flex-direction: column; }
+  .wizard-body p { color: #333; line-height: 1.6; font-size: 13px; }
+  .wizard-body h3 { color: #0a0e14; margin-bottom: 12px; font-size: 15px; }
+  .wizard-footer { padding: 12px 25px; background: #e8e8e8; border-top: 1px solid #ccc; display: flex; justify-content: space-between; align-items: center; }
+  .wizard-footer .step { font-size: 11px; color: #666; }
+  .btn { padding: 6px 20px; border: 1px solid #999; border-radius: 3px; cursor: pointer; font-size: 12px; background: #fff; }
+  .btn-primary { background: #1f6feb; color: white; border-color: #1a5cc7; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Logo */
+  .logo-area { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
+  .logo-icon { width: 64px; height: 64px; background: linear-gradient(135deg, #1f6feb, #388bfd); border-radius: 16px; display: flex; align-items: center; justify-content: center; }
+  .logo-icon svg { width: 40px; height: 40px; fill: white; }
+  .logo-text h1 { font-size: 28px; color: #0a0e14; font-weight: 700; letter-spacing: -1px; }
+  .logo-text span { font-size: 12px; color: #8b949e; }
+
+  /* License */
+  .license-box { background: white; border: 1px solid #d0d7de; border-radius: 4px; padding: 12px; height: 140px; overflow-y: auto; font-size: 11px; color: #555; line-height: 1.5; margin: 10px 0; }
+  .checkbox-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 13px; color: #333; }
+  .checkbox-row input { accent-color: #1f6feb; }
+
+  /* Install location */
+  .path-row { display: flex; gap: 8px; margin: 10px 0; }
+  .path-input { flex: 1; padding: 6px 10px; border: 1px solid #ccc; border-radius: 3px; font-size: 12px; background: white; }
+  .btn-browse { padding: 6px 12px; border: 1px solid #999; border-radius: 3px; background: #f0f0f0; font-size: 12px; cursor: pointer; }
+
+  /* Progress */
+  .progress-bar { background: #ddd; border-radius: 10px; height: 20px; overflow: hidden; margin: 10px 0; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, #1f6feb, #388bfd); border-radius: 10px; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: 600; }
+  .install-log { background: white; border: 1px solid #d0d7de; border-radius: 4px; padding: 10px; height: 100px; overflow-y: auto; font-size: 11px; color: #555; font-family: Consolas, monospace; }
+  .install-log .ok { color: #1f6feb; }
+  .install-log .dl { color: #f0883e; }
+  .install-log .done { color: #3fb950; }
+
+  /* Wizard side image */
+  .wizard-side { background: linear-gradient(180deg, #0a0e14 0%, #1f6feb 100%); width: 160px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; text-align: center; padding: 20px; }
+  .wizard-side .eq { display: flex; gap: 4px; align-items: flex-end; height: 60px; margin-bottom: 15px; }
+  .wizard-side .eq span { width: 8px; background: rgba(255,255,255,0.8); border-radius: 2px; animation: eq 1s ease-in-out infinite; }
+  .wizard-side .eq span:nth-child(1) { height: 20px; animation-delay: 0s; }
+  .wizard-side .eq span:nth-child(2) { height: 40px; animation-delay: 0.1s; }
+  .wizard-side .eq span:nth-child(3) { height: 30px; animation-delay: 0.2s; }
+  .wizard-side .eq span:nth-child(4) { height: 50px; animation-delay: 0.3s; }
+  .wizard-side .eq span:nth-child(5) { height: 25px; animation-delay: 0.4s; }
+  @keyframes eq { 0%,100% { transform: scaleY(1); } 50% { transform: scaleY(0.5); } }
+
+  .page-label { text-align: center; color: #8b949e; font-size: 11px; margin-top: 5px; text-transform: uppercase; letter-spacing: 1px; }
+
+  .wizard-content { display: flex; }
+  .wizard-main { flex: 1; display: flex; flex-direction: column; }
+</style>
+</head>
+<body>
+<div class="phone-frame">
+
+<!-- Page 1: Welcome -->
+<div>
+<div class="wizard">
+  <div class="wizard-content">
+    <div class="wizard-side">
+      <div class="eq"><span></span><span></span><span></span><span></span><span></span></div>
+      <div style="font-size:20px;font-weight:700;">FreQ</div>
+      <div style="font-size:11px;opacity:0.7;margin-top:4px;">Radio Playlist<br>Manager</div>
+    </div>
+    <div class="wizard-main">
+      <div class="wizard-header">
+        <h2>Welcome to FreQ Setup</h2>
+        <p>Version 2.5.47</p>
+      </div>
+      <div class="wizard-body" style="justify-content:center;">
+        <div class="logo-area">
+          <div class="logo-icon">
+            <svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55C7.79 13 6 14.79 6 17s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+          </div>
+          <div class="logo-text">
+            <h1>FreQ</h1>
+            <span>Radio Playlist Manager v2.5.47</span>
+          </div>
+        </div>
+        <p>This wizard will guide you through the installation of <b>FreQ</b> on your computer.</p>
+        <p style="margin-top:10px;color:#8b949e;font-size:11px;">FreQ is a modern radio playlist manager with YouTube integration, streaming support, and advanced playback features.</p>
+      </div>
+    </div>
+  </div>
+  <div class="wizard-footer">
+    <div class="step">Page 1 of 5</div>
+    <div><button class="btn" disabled>Back</button> <button class="btn btn-primary">Next &gt;</button></div>
+  </div>
+</div>
+<div class="page-label">Welcome Page</div>
+</div>
+
+<!-- Page 2: License -->
+<div>
+<div class="wizard">
+  <div class="wizard-content">
+    <div class="wizard-side">
+      <div class="eq"><span></span><span></span><span></span><span></span><span></span></div>
+      <div style="font-size:20px;font-weight:700;">FreQ</div>
+      <div style="font-size:11px;opacity:0.7;margin-top:4px;">Radio Playlist<br>Manager</div>
+    </div>
+    <div class="wizard-main">
+      <div class="wizard-header">
+        <h2>License Agreement</h2>
+        <p>Please read the following license</p>
+      </div>
+      <div class="wizard-body">
+        <div class="license-box">
+          <b>GNU GENERAL PUBLIC LICENSE</b><br>
+          Version 3, 29 June 2007<br><br>
+          Copyright (C) 2024 SocieticsTv Broadcasting & Network<br><br>
+          This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.<br><br>
+          This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.<br><br>
+          <b>Commercial Use Notice:</b><br>
+          Personal/educational use is free. Commercial use requires a separate license.
+        </div>
+        <div class="checkbox-row">
+          <input type="checkbox" checked> <b>I accept the agreement</b>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="wizard-footer">
+    <div class="step">Page 2 of 5</div>
+    <div><button class="btn">&lt; Back</button> <button class="btn btn-primary">Next &gt;</button></div>
+  </div>
+</div>
+<div class="page-label">License Agreement</div>
+</div>
+
+<!-- Page 3: Install Location + Tasks -->
+<div>
+<div class="wizard">
+  <div class="wizard-content">
+    <div class="wizard-side">
+      <div class="eq"><span></span><span></span><span></span><span></span><span></span></div>
+      <div style="font-size:20px;font-weight:700;">FreQ</div>
+      <div style="font-size:11px;opacity:0.7;margin-top:4px;">Radio Playlist<br>Manager</div>
+    </div>
+    <div class="wizard-main">
+      <div class="wizard-header">
+        <h2>Installation Options</h2>
+        <p>Choose where to install and what to include</p>
+      </div>
+      <div class="wizard-body">
+        <h3>📁 Install Location</h3>
+        <div class="path-row">
+          <input class="path-input" value="C:\Program Files\FreQ" readonly>
+          <button class="btn-browse">Browse...</button>
+        </div>
+        <p style="font-size:11px;color:#8b949e;margin-top:4px;">Space required: ~85 MB</p>
+
+        <h3 style="margin-top:15px;">✅ Additional Tasks</h3>
+        <div class="checkbox-row"><input type="checkbox" checked> Create desktop shortcut</div>
+        <div class="checkbox-row"><input type="checkbox" checked> Associate .freq playlist files</div>
+        <div class="checkbox-row"><input type="checkbox" checked> Install FFmpeg (for streaming)</div>
+        <div class="checkbox-row"><input type="checkbox"> Open documentation after install</div>
+      </div>
+    </div>
+  </div>
+  <div class="wizard-footer">
+    <div class="step">Page 3 of 5</div>
+    <div><button class="btn">&lt; Back</button> <button class="btn btn-primary">Install</button></div>
+  </div>
+</div>
+<div class="page-label">Installation Options</div>
+</div>
+
+<!-- Page 4: Installing -->
+<div>
+<div class="wizard">
+  <div class="wizard-content">
+    <div class="wizard-side">
+      <div class="eq"><span></span><span></span><span></span><span></span><span></span></div>
+      <div style="font-size:20px;font-weight:700;">FreQ</div>
+      <div style="font-size:11px;opacity:0.7;margin-top:4px;">Radio Playlist<br>Manager</div>
+    </div>
+    <div class="wizard-main">
+      <div class="wizard-header">
+        <h2>Installing FreQ</h2>
+        <p>Please wait while the installation completes</p>
+      </div>
+      <div class="wizard-body">
+        <div class="progress-bar">
+          <div class="progress-fill" style="width:75%;">75%</div>
+        </div>
+        <div class="install-log">
+          <div class="ok">✓ Creating installation directory...</div>
+          <div class="ok">✓ Installing FreQ.exe (13.3 MB)...</div>
+          <div class="ok">✓ Installing libraries...</div>
+          <div class="ok">✓ Creating desktop shortcut...</div>
+          <div class="ok">✓ Setting up file association...</div>
+          <div class="dl">⏳ Downloading FFmpeg... (68%)</div>
+          <div>  Extracting ffmpeg.exe...</div>
+          <div>  Extracting ffprobe.exe...</div>
+        </div>
+        <p style="margin-top:10px;font-size:11px;color:#8b949e;">This may take a few minutes if FFmpeg is being downloaded.</p>
+      </div>
+    </div>
+  </div>
+  <div class="wizard-footer">
+    <div class="step">Installing...</div>
+    <div><button class="btn" disabled>Cancel</button></div>
+  </div>
+</div>
+<div class="page-label">Installation Progress</div>
+</div>
+
+<!-- Page 5: Complete -->
+<div>
+<div class="wizard">
+  <div class="wizard-content">
+    <div class="wizard-side">
+      <div class="eq"><span></span><span></span><span></span><span></span><span></span></div>
+      <div style="font-size:20px;font-weight:700;">FreQ</div>
+      <div style="font-size:11px;opacity:0.7;margin-top:4px;">Radio Playlist<br>Manager</div>
+    </div>
+    <div class="wizard-main">
+      <div class="wizard-header" style="background:linear-gradient(135deg, #0a3a0a 0%, #1a4a1a 100%); border-bottom-color: #3fb950;">
+        <h2>✅ Installation Complete</h2>
+        <p>FreQ has been installed successfully</p>
+      </div>
+      <div class="wizard-body" style="justify-content:center;">
+        <div style="text-align:center;margin-bottom:20px;">
+          <div style="font-size:48px;margin-bottom:10px;">🎉</div>
+          <h3 style="font-size:18px;">FreQ is Ready!</h3>
+        </div>
+        <div class="checkbox-row"><input type="checkbox" checked> Launch FreQ now</div>
+        <div class="checkbox-row"><input type="checkbox"> Open documentation</div>
+        <div style="margin-top:15px;padding:12px;background:#f6f8fa;border-radius:6px;border:1px solid #d0d7de;">
+          <p style="font-size:12px;color:#333;margin-bottom:8px;"><b>Installed to:</b></p>
+          <p style="font-size:11px;color:#555;font-family:Consolas,monospace;">C:\Program Files\FreQ</p>
+          <p style="font-size:11px;color:#8b949e;margin-top:6px;">Desktop shortcut created • .freq files associated</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="wizard-footer">
+    <div class="step">Page 5 of 5</div>
+    <div><button class="btn btn-primary">Finish</button></div>
+  </div>
+</div>
+<div class="page-label">Installation Complete</div>
+</div>
+
+</div>
+</body>
+</html>

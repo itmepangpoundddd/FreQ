@@ -242,9 +242,13 @@ class AudioPlayer:
                      start_position: float = 0.0) -> bool:
         """Download YouTube audio and play (check cache first)"""
         if not self.available:
+            if on_progress:
+                on_progress("error", 0)
             return False
         if not YT_DLP_AVAILABLE:
             print("  ⚠️  yt-dlp not installed — pip install yt-dlp")
+            if on_progress:
+                on_progress("error", 0)
             return False
 
         # ── Check cache first ──
@@ -336,7 +340,10 @@ class AudioPlayer:
                     except Exception:
                         pass
 
-                self.play_file(filename, actual_duration, on_finish)
+                if not self.play_file(filename, actual_duration, on_finish):
+                    if on_progress:
+                        on_progress("error", 0)
+                    return
                 if start_position > 0:
                     self.seek(start_position)
 

@@ -230,7 +230,7 @@ LIVELAN_HTML = """
     
     <!-- Status Bar -->
     <div class="status-bar">
-        <span id="statusLeft">FreQ LiveLAN v2.0.0</span>
+        <span id="statusLeft">FreQ LiveLAN v2.5.47</span>
         <span id="statusRight"></span>
     </div>
     

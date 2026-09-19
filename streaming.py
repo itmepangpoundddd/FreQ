@@ -31,6 +31,8 @@ from dataclasses import dataclass, field
 from typing import Optional, Callable
 from urllib.parse import quote, urlparse
 
+from audio_meter import meter as audio_meter
+
 logger = logging.getLogger("freq.streaming")
 
 # ═══════════════════════════════════════════════
@@ -356,6 +358,8 @@ class FFmpegStreamer:
         """Write PCM audio data to the FFmpeg pipe."""
         if self._state != StreamState.STREAMING or not data:
             return
+        if self.config.channels == 2:
+            audio_meter.publish_s16le_stereo(data)
         try:
             self._pcm_queue.put_nowait(data)
         except queue.Full:

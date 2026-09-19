@@ -1,9 +1,23 @@
 """Create wizard images for Inno Setup installer."""
+import re
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
+PROJECT_DIR = Path(__file__).resolve().parent
+
+
+def installer_version() -> str:
+    """Read the canonical application version from the Inno Setup script."""
+    installer_script = PROJECT_DIR / "installer.iss"
+    content = installer_script.read_text(encoding="utf-8")
+    match = re.search(r'^\s*#define\s+MyAppVersion\s+"([^"]+)"', content, re.MULTILINE)
+    if not match:
+        raise ValueError(f"MyAppVersion was not found in {installer_script}")
+    return match.group(1)
+
+
 def create_wizard_images():
-    logo = Path("logo.png")
+    logo = PROJECT_DIR / "logo.png"
     if not logo.exists():
         print("[ERROR] logo.png not found!")
         return
@@ -41,19 +55,19 @@ def create_wizard_images():
     draw.text(((164 - sw2) // 2, 222), sub2, fill=(139, 149, 165), font=small_font)
 
     # Version
-    ver = "v2.0.0"
+    ver = f"v{installer_version()}"
     bbox4 = draw.textbbox((0, 0), ver, font=small_font)
     vw = bbox4[2] - bbox4[0]
     draw.text(((164 - vw) // 2, 260), ver, fill=(78, 87, 105), font=small_font)
 
-    large.save("wizard_large.bmp")
+    large.save(PROJECT_DIR / "wizard_large.bmp")
     print("[OK] wizard_large.bmp (164x314)")
 
     # Small wizard image (55x58)
     small = Image.new("RGBA", (55, 58), (10, 14, 20, 255))
     logo_small = img.resize((48, 48), Image.Resampling.LANCZOS)
     small.paste(logo_small, (3, 5), logo_small)
-    small.save("wizard_small.bmp")
+    small.save(PROJECT_DIR / "wizard_small.bmp")
     print("[OK] wizard_small.bmp (55x58)")
 
 if __name__ == "__main__":

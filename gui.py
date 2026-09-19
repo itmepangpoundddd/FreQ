@@ -15,10 +15,12 @@ Run:
 from __future__ import annotations
 
 import os
+import math
 import re
 import subprocess
 import sys
 import tempfile
+import time
 import uuid
 import threading
 import tkinter as tk
@@ -43,6 +45,7 @@ from radio_manager import (
     generate_demo_songs,
 )
 from audio import AudioDeviceManager
+from audio_meter import meter as audio_meter
 from player import AudioPlayer
 from mic_recorder import record_wav, SOUNDDEVICE_AVAILABLE
 from cache import cache as song_cache
@@ -512,14 +515,24 @@ class VumeterWidget(tk.Canvas):
         self._draw()
 
     def update_levels(self, volume: float, playing: bool) -> None:
-        """Update VU meter levels based on current volume and state."""
-        import random
-        if playing:
-            base = volume / 100.0
-            self._rms_l = max(0.0, min(1.0, base * (0.7 + random.random() * 0.3)))
-            self._rms_r = max(0.0, min(1.0, base * (0.7 + random.random() * 0.3)))
-            self._peak_l = max(self._rms_l * (1.0 + random.random() * 0.15), self._peak_l * 0.85)
-            self._peak_r = max(self._rms_r * (1.0 + random.random() * 0.15), self._peak_r * 0.85)
+        """Draw PCM levels, with a local-playback fallback when pygame exposes no PCM."""
+        rms_l, rms_r, peak_l, peak_r = audio_meter.levels()
+        if playing and (peak_l or peak_r):
+            gain = max(0.0, min(1.0, volume / 100.0))
+            self._rms_l = min(1.0, rms_l * gain)
+            self._rms_r = min(1.0, rms_r * gain)
+            self._peak_l = max(min(1.0, peak_l * gain), self._peak_l * 0.85)
+            self._peak_r = max(min(1.0, peak_r * gain), self._peak_r * 0.85)
+        elif playing:
+            # pygame.mixer does not expose its decoded PCM buffer. Keep the
+            # meter visibly active during local playback until a PCM source is
+            # available; streamed PCM still takes the real-level path above.
+            gain = max(0.0, min(1.0, volume / 100.0))
+            phase = time.monotonic() * 5.5
+            self._rms_l = gain * (0.42 + 0.16 * (math.sin(phase) * 0.5 + 0.5))
+            self._rms_r = gain * (0.42 + 0.16 * (math.sin(phase * 1.07 + 1.2) * 0.5 + 0.5))
+            self._peak_l = max(self._peak_l * 0.85, min(1.0, self._rms_l * 1.18))
+            self._peak_r = max(self._peak_r * 0.85, min(1.0, self._rms_r * 1.18))
         else:
             self._rms_l *= 0.8
             self._rms_r *= 0.8
@@ -2096,6 +2109,8 @@ class RadioApp(ctk.CTk):
         self._pre_duck_volume = 80.0
         self._anthem_playing = False
         self._anthem_was_playing = False
+        self._anthem_resume_token = 0
+        self._anthem_resume_cancel = threading.Event()
 
         # Initialize new features
         self.visualizer = None  # Lazy init
@@ -2461,6 +2476,9 @@ class RadioApp(ctk.CTk):
 
     def _play_index(self, index: int) -> None:
         """Play song at index — download YouTube audio then play"""
+        # A manual/queue selection invalidates any pending anthem auto-resume.
+        self._anthem_resume_token += 1
+        self._anthem_resume_cancel.set()
         # Any manual/queue playback supersedes anthem/jingle playback — cancel
         # a pending anthem/jingle resume so it can't hijack the new selection.
         self._anthem_playing = False
@@ -2493,7 +2511,9 @@ class RadioApp(ctk.CTk):
                 song_id=song.id,
                 title=song.title,
                 on_finish=lambda: self.after(0, self._on_track_finished),
-                on_progress=lambda status, pct: self.after(0, self._on_download_progress, status, pct),
+                on_progress=lambda status, pct, idx=index: self.after(
+                    0, self._on_download_progress, status, pct, idx
+                ),
                 start_position=yt_start,
             )
         elif song.file_path and os.path.isfile(song.file_path):
@@ -2818,7 +2838,7 @@ class RadioApp(ctk.CTk):
     # ═══════════════════════════════════════
     # Download Progress
     # ═══════════════════════════════════════
-    def _on_download_progress(self, status: str, pct: float) -> None:
+    def _on_download_progress(self, status: str, pct: float, download_index: Optional[int] = None) -> None:
         """Update progress bar during YouTube download"""
         try:
             if status == "downloading":
@@ -2868,13 +2888,29 @@ class RadioApp(ctk.CTk):
                     if song:
                         streamer.on_track_change(song.title, song.artist, yt_file)
             elif status == "error":
+                # A failed download should not block the queue. Ignore stale
+                # callbacks if the user has already selected another song.
+                if download_index is not None and self.rq.current_index != download_index:
+                    return
                 self._download_mode = False
-                self.np_status.configure(text="❌ Download failed",
+                self.np_status.configure(text="❌ Download failed — skipping",
                                           text_color=COLORS["red"])
                 self.btn_play.configure(state="normal")
                 self.np_progress.set(0)
                 self.np_time_cur.configure(text="0:00")
                 self.np_time_total.configure(text="0:00")
+                failed_index = self.rq.current_index
+                if not self.rq.queue or len(self.rq.queue) <= 1:
+                    self._playing = False
+                    self._refresh_queue()
+                    self._update_now_playing()
+                    return
+                self.audio_player.stop()
+                self.rq.skip_next()
+                self._refresh_queue()
+                self._update_now_playing()
+                if self.rq.current_index != failed_index:
+                    self.after(150, lambda: self._play_index(self.rq.current_index))
         except Exception:
             pass
 
@@ -5260,11 +5296,15 @@ class RadioApp(ctk.CTk):
         """Resume original playback after anthem (called from scheduler thread)."""
         def _do_resume():
             self._anthem_playing = False
+            was_playing = self._anthem_was_playing
+            # Consume the saved state before starting the original track. This
+            # makes a second resume callback harmless.
+            self._anthem_was_playing = False
             # Only restore playback if something was actually playing before
             # the anthem. _play_index clears _anthem_was_playing whenever the
             # user/queue starts a different track, so a stale resume never
             # hijacks a newer selection.
-            if not self._anthem_was_playing:
+            if not was_playing:
                 return
             idx = getattr(self, '_anthem_saved_index', self.rq.current_index)
             pos = getattr(self, '_anthem_saved_position', 0.0)
@@ -5316,6 +5356,9 @@ class RadioApp(ctk.CTk):
             self.audio_player.pause()
         # Play anthem — auto-detect duration from file
         self._anthem_playing = True
+        self._anthem_resume_token += 1
+        resume_token = self._anthem_resume_token
+        self._anthem_resume_cancel.clear()
         duration = self.anthem.config.duration
         if duration <= 0:
             duration = self._detect_anthem_duration()
@@ -5336,8 +5379,10 @@ class RadioApp(ctk.CTk):
             self.anthem_next_label.configure(text="🇹🇭 Playing anthem (test)...", text_color=COLORS["accent"])
         # Auto-resume after duration via threading (no sleep on main thread)
         def _auto_resume():
-            import time as _t
-            _t.sleep(duration)
+            if self._anthem_resume_cancel.wait(max(0.0, duration)):
+                return
+            if resume_token != self._anthem_resume_token or not self._anthem_playing:
+                return
             self.after(0, self._anthem_resume)
             if hasattr(self, 'anthem_next_label'):
                 self.after(0, lambda: self.anthem_next_label.configure(
@@ -5347,6 +5392,8 @@ class RadioApp(ctk.CTk):
 
     def _test_anthem_stop(self) -> None:
         """Stop anthem playback and resume normal playback."""
+        self._anthem_resume_token += 1
+        self._anthem_resume_cancel.set()
         self.audio_player.stop()
         self._anthem_resume()
         if hasattr(self, 'anthem_next_label'):
@@ -5560,6 +5607,8 @@ class RadioApp(ctk.CTk):
     def _on_close(self) -> None:
         """Save and shutdown cleanly"""
         self._sync_anthem_times()
+        self._anthem_resume_token += 1
+        self._anthem_resume_cancel.set()
         self.anthem.stop()
         settings = self._collect_settings()
         self.audio_player.shutdown()

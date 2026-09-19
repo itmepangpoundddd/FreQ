@@ -701,7 +701,9 @@ class NationalAnthem:
         if self._pause_callback:
             self._pause_callback()
 
-        time.sleep(self.config.pause_before)
+        # Allow shutdown to cancel the wait without calling back into Tk.
+        if self._stop_event.wait(max(0.0, self.config.pause_before)):
+            return
 
         # Play anthem file
         if self._play_callback:
@@ -709,7 +711,8 @@ class NationalAnthem:
 
         # Wait for anthem to finish
         duration = self.config.duration or self._detect_duration()
-        time.sleep(duration)
+        if self._stop_event.wait(max(0.0, duration)):
+            return
 
         # Resume playback
         if self.config.resume_after and self._resume_callback:

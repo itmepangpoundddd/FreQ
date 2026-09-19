@@ -90,13 +90,19 @@ def build(debug=False):
     if templates.exists():
         datas.append(f"{templates};templates")
 
+    # Optional C++ PCM meter. The pure-Python implementation remains available
+    # when this extension has not been compiled on the build machine.
+    native_meter = ROOT / "native_audio_meter.cp314-win_amd64.pyd"
+    if native_meter.exists():
+        cmd.extend(["--add-binary", f"{native_meter};."])
+
     for d in datas:
         cmd.extend(["--add-data", d])
 
     # Hidden imports
     hidden = [
         "radio_manager", "audio", "cache", "features", "player", "icons",
-        "streaming", "tooltips",
+        "streaming", "tooltips", "audio_meter",
         "customtkinter", "yt_dlp", "pygame", "PIL", "sounddevice",
         "flask", "mutagen",
     ]

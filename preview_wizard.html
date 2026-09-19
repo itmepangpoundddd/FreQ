@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>FreQ Installer Preview</title>
+<style>
+  body { background: #1a1a2e; color: #fff; font-family: Arial; display: flex; flex-direction: column; align-items: center; padding: 40px; }
+  h1 { color: #1f6feb; }
+  .container { display: flex; gap: 40px; align-items: flex-start; margin-top: 20px; }
+  .card { background: #16213e; border-radius: 12px; padding: 20px; text-align: center; }
+  .card img { border: 2px solid #1f6feb; border-radius: 4px; }
+  .card p { margin-top: 12px; color: #b0b8c4; }
+  .sim { display: flex; background: #f0f0f0; border-radius: 8px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+  .sim-sidebar { width: 164px; }
+  .sim-sidebar img { display: block; height: 314px; }
+  .sim-main { width: 400px; height: 314px; padding: 24px; box-sizing: border-box; color: #333; }
+  .sim-main h2 { color: #1f6feb; margin-top: 0; }
+  .sim-main p { font-size: 13px; color: #666; line-height: 1.5; }
+</style>
+</head>
+<body>
+<h1>FreQ Installer — Wizard Images Preview</h1>
+
+<div class="container">
+  <div class="card">
+    <img src="wizard_large.bmp" width="164" height="314">
+    <p>wizard_large.bmp (164×314)</p>
+  </div>
+  <div class="card">
+    <img src="wizard_small.bmp" width="55" height="58">
+    <p>wizard_small.bmp (55×58)</p>
+  </div>
+</div>
+
+<h2 style="margin-top:40px;">Simulated Installer Window</h2>
+<div class="sim">
+  <div class="sim-sidebar">
+    <img src="wizard_large.bmp" width="164" height="314">
+  </div>
+  <div class="sim-main">
+    <h2>Welcome to FreQ</h2>
+    <p>FreQ is a Radio Playlist Manager that lets you manage playlists, stream to Icecast/Shoutcast, play YouTube audio, and customize your radio experience.</p>
+    <p style="margin-top:20px; color:#999; font-size:12px;">Click Next to continue the installation.</p>
+  </div>
+</div>
+
+</body>
+</html>
