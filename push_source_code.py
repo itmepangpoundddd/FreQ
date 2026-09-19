@@ -37,17 +37,33 @@ def version() -> str:
 def stage_source() -> None:
     # Include source and documentation while leaving build outputs, caches,
     # downloaded dependencies, and local radio data outside the commit.
-    run(
-        "git", "add", "-u",
-    )
-    run(
-        "git", "add", "--",
-        "*.py", "*.iss", "*.md", "*.html", "*.svg", "*.png", "*.ico",
-        "templates",
-    )
-    # Batch files are intentionally ignored by the upstream project rules,
-    # but they are source build scripts and should be pushed with the project.
-    run("git", "add", "-f", "--", "*.bat")
+    modified = run(
+        "git", "diff", "--name-only", "--diff-filter=ACMRTUXB", capture=True
+    ).splitlines()
+    modified = [path for path in modified if (ROOT / path).exists()]
+    if modified:
+        run("git", "add", "--", *modified)
+    source_patterns = [
+        "*.py", "*.cpp", "*.cc", "*.c", "*.h", "*.hpp",
+        "*.iss", "*.md", "*.html", "*.svg", "*.png", "*.ico",
+    ]
+    def is_ignored(path: str) -> bool:
+        return subprocess.run(
+            ["git", "check-ignore", "-q", "--", path],
+            cwd=ROOT,
+            check=False,
+        ).returncode == 0
+
+    source_files = [
+        path.name
+        for pattern in source_patterns
+        for path in ROOT.glob(pattern)
+        if path.is_file() and not is_ignored(path.name)
+    ]
+    if (ROOT / "templates").is_dir():
+        source_files.append("templates")
+    if source_files:
+        run("git", "add", "--", *sorted(set(source_files)))
 
 
 def main() -> None:

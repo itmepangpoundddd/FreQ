@@ -44,6 +44,13 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/landing")
+@app.route("/site")
+def landing():
+    """Public FreQ product landing page."""
+    return render_template("landing.html")
+
+
 # ──────────────────────────────────────────────
 # API: Queue
 # ──────────────────────────────────────────────

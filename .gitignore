@@ -1,42 +1,54 @@
-# Python
+# Python caches and compiled extensions
 __pycache__/
 *.pyc
-*.pyd
 *.pyo
-*.obj
-*.so
+*.pyd
 *.egg-info/
 
-# Build
+# Build outputs and generated binaries
 build/
 dist/
+build_nuitka/
+_final/
+Output/
 *.spec
-*.bat
-!build_native_meter.bat
-compile_to_c.py
+*.exe
+*.msi
+*.zip
+*.dll
+*.log
+nuitka-crash-report.xml
 
-# Compiled C
+# Build scripts and temporary native artifacts
+*.bat
+*.obj
+*.exp
+*.lib
+*.so
+*.dylib
+*.c
+compile_to_c.py
 .C/
 
-# Installer build artifacts
-Output/
-_final/
+# Downloaded dependencies and generated installer artwork
+deps/
 wizard_*.bmp
+*.bmp
 
 # Local application data
 radio_queue.json
 radio_queue.freq
+*.freq
+.freebuff/
+.source/
 
-# IDE
+# IDE and operating-system files
 .vscode/
 .idea/
-
-# OS
 Thumbs.db
 Desktop.ini
 .DS_Store
 
-# Logs and temp files
-*.log
+# Logs and temporary files
 *.tmp
 *.bak
