@@ -539,6 +539,129 @@ static PyObject* find_silence_end(PyObject*, PyObject* args) {
                          trail * 1000.0 >= min_ms ? trail : 0.0);
 }
 
+// ── Crossfade: equal-power mix of two s16le stereo PCM buffers ──
+// Overlaps the tail of stream A with the head of stream B. A's slice
+// starts at ``offset_a`` frames and fades out over ``mix_frames`` while
+// B's slice (starting at ``offset_b``) fades in — cosine/sine equal-power
+// curves so perceived loudness stays flat mid-fade. ``gain_a``/``gain_b``
+// are linear multipliers used to loudness-match tracks before mixing.
+// Output = A up to the overlap + the mix window + B's remainder.
+
+static inline double pcm_s16(const char* p) {
+    int16_t v;
+    std::memcpy(&v, p, 2);
+    return static_cast<double>(v);
+}
+
+static PyObject* crossfade_mix(PyObject*, PyObject* args) {
+    Py_buffer buf_a{}, buf_b{};
+    Py_ssize_t offset_a = 0, offset_b = 0, mix_frames = 0;
+    double gain_a = 1.0, gain_b = 1.0;
+    Py_ssize_t fade_start = -1, fade_len = 0;
+    if (!PyArg_ParseTuple(args, "y*y*|nnnddnn", &buf_a, &buf_b, &offset_a,
+                          &offset_b, &mix_frames, &gain_a, &gain_b,
+                          &fade_start, &fade_len)) {
+        return nullptr;
+    }
+    const char* a = static_cast<const char*>(buf_a.buf);
+    const char* b = static_cast<const char*>(buf_b.buf);
+    const Py_ssize_t frames_a = buf_a.len / 4;   // 4 bytes per stereo frame
+    const Py_ssize_t frames_b = buf_b.len / 4;
+
+    // ── Chunk mode (fade_start >= 0): mix two equal-purpose chunks with
+    // weights taken at the absolute fade position. Used by the WASAPI
+    // engine to fade across write() chunks; output = max(a, b) frames.
+    if (fade_start >= 0 && fade_len > 0) {
+        const Py_ssize_t total = frames_a > frames_b ? frames_a : frames_b;
+        PyObject* out = PyBytes_FromStringAndSize(nullptr, total * 4);
+        if (!out) {
+            PyBuffer_Release(&buf_a);
+            PyBuffer_Release(&buf_b);
+            return nullptr;
+        }
+        char* dst = PyBytes_AS_STRING(out);
+        const double half_pi = 1.5707963267948966;
+        for (Py_ssize_t i = 0; i < total; ++i) {
+            double t = (fade_start + i) / static_cast<double>(fade_len);
+            if (t < 0.0) t = 0.0;
+            if (t > 1.0) t = 1.0;
+            const double wa = std::cos(t * half_pi);
+            const double wb = std::sin(t * half_pi);
+            double l = 0.0, r = 0.0;
+            if (i < frames_a) {
+                l = gain_a * wa * pcm_s16(a + i * 4);
+                r = gain_a * wa * pcm_s16(a + i * 4 + 2);
+            }
+            if (i < frames_b) {
+                l += gain_b * wb * pcm_s16(b + i * 4);
+                r += gain_b * wb * pcm_s16(b + i * 4 + 2);
+            }
+            if (l > 32767.0) l = 32767.0;
+            if (l < -32768.0) l = -32768.0;
+            if (r > 32767.0) r = 32767.0;
+            if (r < -32768.0) r = -32768.0;
+            const int16_t ql = static_cast<int16_t>(l);
+            const int16_t qr = static_cast<int16_t>(r);
+            std::memcpy(dst + i * 4, &ql, 2);
+            std::memcpy(dst + i * 4 + 2, &qr, 2);
+        }
+        PyBuffer_Release(&buf_a);
+        PyBuffer_Release(&buf_b);
+        return out;
+    }
+
+    // ── File mode: overlap the tail of A with the head of B and return
+    // the complete crossfaded file in one buffer.
+    const Py_ssize_t avail_a = offset_a < frames_a ? frames_a - offset_a : 0;
+    const Py_ssize_t avail_b = offset_b < frames_b ? frames_b - offset_b : 0;
+    Py_ssize_t n = avail_a < avail_b ? avail_a : avail_b;
+    if (mix_frames > 0 && mix_frames < n) n = mix_frames;
+    const Py_ssize_t tail_b = frames_b - offset_b - n;
+    const Py_ssize_t total = offset_a + n + (tail_b > 0 ? tail_b : 0);
+
+    PyObject* out = PyBytes_FromStringAndSize(nullptr, total * 4);
+    if (!out) {
+        PyBuffer_Release(&buf_a);
+        PyBuffer_Release(&buf_b);
+        return nullptr;
+    }
+    char* dst = PyBytes_AS_STRING(out);
+    const double half_pi = 1.5707963267948966;
+    for (Py_ssize_t i = 0; i < total; ++i) {
+        double l = 0.0, r = 0.0;
+        if (i >= offset_a && i < offset_a + n) {
+            const Py_ssize_t ja = i - offset_a;
+            const double t = n > 1 ? ja / static_cast<double>(n - 1) : 0.0;
+            const double wa = std::cos(t * half_pi);   // 1 → 0
+            const Py_ssize_t fa = (offset_a + ja) * 4;
+            l = gain_a * wa * pcm_s16(a + fa);
+            r = gain_a * wa * pcm_s16(a + fa + 2);
+        }
+        if (i >= offset_a) {
+            const Py_ssize_t jb = i - offset_a;
+            const Py_ssize_t fb = offset_b + jb;
+            if (fb < frames_b) {
+                double t = n > 1 ? jb / static_cast<double>(n - 1) : 1.0;
+                if (t > 1.0) t = 1.0;
+                const double wb = std::sin(t * half_pi);   // 0 → 1
+                l += gain_b * wb * pcm_s16(b + fb * 4);
+                r += gain_b * wb * pcm_s16(b + fb * 4 + 2);
+            }
+        }
+        if (l > 32767.0) l = 32767.0;
+        if (l < -32768.0) l = -32768.0;
+        if (r > 32767.0) r = 32767.0;
+        if (r < -32768.0) r = -32768.0;
+        const int16_t ql = static_cast<int16_t>(l);
+        const int16_t qr = static_cast<int16_t>(r);
+        std::memcpy(dst + i * 4, &ql, 2);
+        std::memcpy(dst + i * 4 + 2, &qr, 2);
+    }
+    PyBuffer_Release(&buf_a);
+    PyBuffer_Release(&buf_b);
+    return out;
+}
+
 static PyMethodDef methods[] = {
     {"analyze_s16le_stereo", analyze_s16le_stereo, METH_VARARGS,
      "Return RMS and peak levels for signed-16-bit little-endian stereo PCM."},
@@ -558,6 +681,8 @@ static PyMethodDef methods[] = {
      "Convert a sequence of float samples (-1..1) to s16le stereo PCM bytes."},
     {"find_silence_end", find_silence_end, METH_VARARGS,
      "Find leading/trailing silence (seconds) in mono s16le PCM."},
+    {"crossfade_mix", crossfade_mix, METH_VARARGS,
+     "Equal-power mix of two s16le stereo PCM buffers for crossfading."},
     {nullptr, nullptr, 0, nullptr},
 };
 static PyModuleDef module = {PyModuleDef_HEAD_INIT, "native_audio_meter", "FreQ native meter.", -1, methods};

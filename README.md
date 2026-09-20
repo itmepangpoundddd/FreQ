@@ -61,11 +61,18 @@ per-channel gain and limiting to PCM audio, computes 32 log-frequency spectrum
 bars for the visualizer (iterative radix-2 FFT, no numpy needed), aggregates
 waveform peaks for the waveform display, converts legacy sample lists to PCM
 (`samples_to_stereo_pcm`), detects leading/trailing silence for auto-cue
-(`find_silence_end`), and measures BS.1770-4 K-weighted
-loudness with histogram gating for real-time stream normalization. A second
+(`find_silence_end`), measures BS.1770-4 K-weighted
+loudness with histogram gating for real-time stream normalization, and mixes
+two PCM streams with equal-power cosine/sine curves for gapless crossfades
+(`crossfade_mix`). A second
 module (`native_audio_output`) manages output devices through WASAPI: it
 enumerates render endpoints and switches the OS default speaker, so the whole
-system (pygame playback included) follows the dropdown selection. Python
+system (pygame playback included) follows the dropdown selection. A third
+module (`native_audio_render`) is a full WASAPI render stream: an event-driven
+C++ playback engine with a ~2 s ring buffer that plays decoded PCM directly on
+the chosen endpoint — selecting a speaker routes FreQ's audio there without
+touching the OS default (works even on Windows builds that cannot switch
+defaults) — and mixes crossfade chunks live on one output clock. Python
 automatically falls back to the portable implementation (same algorithms) if
 the native extension is unavailable; on Windows builds without the
 PolicyConfig class, the app opens the system sound settings instead.
@@ -74,6 +81,15 @@ Auto-cue skips silent heads so every track starts right at the music. Toggle
 it with the ⏱ button in the playback controls (the choice is saved to the
 `.freq` preset); detection is measured once per file and cached, then the
 head is trimmed with the same ffmpeg mechanism seek uses.
+
+Crossfade (🔄 button, saved to the `.freq` preset) blends the end of each
+song into the beginning of the next: near the end of the current track the
+player renders an equal-power overlap of the two (loudness-matched with the
+BS.1770-4 meter, ±6 dB clamp), queues it with SDL so the switch between
+buffers is sample-gapless, and updates the queue/UI exactly when the next
+track becomes audible. YouTube and mic segments keep the classic
+stop-between-tracks behavior, and everything falls back to sequential
+playback when the native mixer or ffmpeg is unavailable.
 
 When `loudness_enabled` is set on the streaming configuration, FreQ measures
 the integrated loudness of the program being streamed and smoothly retunes a

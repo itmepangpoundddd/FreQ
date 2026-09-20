@@ -2118,6 +2118,9 @@ class RadioApp(ctk.CTk):
         self._anthem_was_playing = False
         self._anthem_resume_token = 0
         self._anthem_resume_cancel = threading.Event()
+        # WASAPI engine route: endpoint id when playback bypasses the OS
+        # default via the C++ render engine (None = classic pygame/default).
+        self._wasapi_device: Optional[str] = None
 
         # Initialize new features
         self.visualizer = None  # Lazy init
@@ -2546,6 +2549,9 @@ class RadioApp(ctk.CTk):
                 pos = self._saved_playback_position
                 self._saved_playback_position = 0.0
                 self.after(100, lambda p=pos: self.audio_player.seek(p))
+            else:
+                # Arm the crossfade engine for the track that follows this one.
+                self.after(250, lambda i=index: self._arm_crossfade_for_next(i))
             # Generate waveform
             self.after(100, lambda fp=song.file_path: self._load_waveform(fp))
             # Start streaming this file if streaming is active
@@ -2770,11 +2776,15 @@ class RadioApp(ctk.CTk):
         self.device_var.set("Default")
 
     def _on_device_selected(self, choice: str) -> None:
-        """Switch the OS default output device; live playback follows."""
+        """Route FreQ's output to the chosen speaker (WASAPI-first)."""
         if not self.audio_mgr.available:
             return
         if choice == "Default":
-            if self.audio_mgr.restore_default():
+            self._wasapi_device = None
+            if self.audio_player.engine == "wasapi":
+                self.audio_player.reopen_output(None)
+                self._show_toast("🔊 Output: system default (FreQ-only)")
+            elif self.audio_mgr.restore_default():
                 self.audio_player.reopen_output()
                 self._show_toast("🔊 Output: system default")
             else:
@@ -2783,6 +2793,13 @@ class RadioApp(ctk.CTk):
         # Search device by name
         for d in self.audio_mgr.get_output_devices():
             if d.name in choice or choice in d.name:
+                # Preferred route: the C++ WASAPI engine plays on this
+                # endpoint directly — the OS default stays untouched (works
+                # even on Windows builds that cannot switch defaults).
+                if d.endpoint_id and self.audio_player.move_to_endpoint(d.endpoint_id):
+                    self._wasapi_device = d.endpoint_id
+                    self._show_toast(f"🔊 Output: {d.name[:40]} (FreQ-only)")
+                    break
                 switched = (self.audio_mgr.switch_to_endpoint(d.endpoint_id)
                             if d.endpoint_id else self.audio_mgr.set_device(d.id))
                 if switched:
@@ -3367,8 +3384,96 @@ class RadioApp(ctk.CTk):
 
     def _toggle_crossfade(self) -> None:
         self.crossfade.enabled = not self.crossfade.enabled
+        self.audio_player.crossfade_enabled = self.crossfade.enabled
+        self.audio_player.crossfade_duration = max(1.0, self.crossfade.duration or 4.0)
+        if not self.crossfade.enabled:
+            self.audio_player.clear_next_track()
         self.btn_crossfade.configure(fg_color=COLORS["accent"] if self.crossfade.enabled else "transparent",
                                      text_color="#fff" if self.crossfade.enabled else COLORS["text"])
+        if hasattr(self, "_toast"):
+            try:
+                self._toast("Crossfade ON — songs blend seamlessly" if self.crossfade.enabled
+                            else "Crossfade OFF")
+            except Exception:
+                pass
+
+    def _queue_crossfade(self, song, index: int, on_finish: bool = True) -> None:
+        """Hand the upcoming track to the player's crossfade engine.
+
+        Only local files crossfade (YouTube/mic playback keeps the classic
+        finish-callback path). ``handoff`` fires when the player seamlessly
+        switches into this track, or via the normal finish callback when
+        crossfade was off/too late to arm.
+        """
+        handoff = None
+        if (self.crossfade.enabled and self.audio_player.crossfade_available
+                and song.file_path and os.path.isfile(song.file_path)):
+            handoff = self._advance_crossfaded
+        if handoff is not None:
+            self.audio_player.set_next_track(
+                song.file_path, duration=song.duration or 0.0,
+                index=index, handoff=handoff,
+            )
+        elif on_finish:
+            # Keep the classic path: the player's monitor calls on_finish,
+            # which lands in _on_track_finished via after(0).
+            pass
+
+    def _arm_crossfade_for_next(self, current_index: int) -> None:
+        """Peek at the queue and arm the crossfade engine for the next song.
+
+        Runs shortly after a track starts. Ads and jingles keep the classic
+        finish-callback path — they only make sense as standalone segments.
+        """
+        try:
+            if (not self.crossfade.enabled
+                    or not self.audio_player.crossfade_available
+                    or not self.audio_player.is_playing):
+                return
+            if (self.commercial.enabled and self.commercial.ads
+                    and self.commercial.song_counter + 1 >= self.commercial.interval):
+                return
+            if (self.jingle.enabled and self.jingle.jingle_file
+                    and self.jingle.song_counter + 1 >= self.jingle.interval):
+                return
+            nxt_index = self.rq.modes.next_index(current_index, len(self.rq.queue))
+            if nxt_index is None or nxt_index == current_index:
+                return
+            song = self.rq.queue[nxt_index]
+            if song is None or song.source in ("youtube", "mic"):
+                return
+            self._queue_crossfade(song, nxt_index)
+        except Exception as e:
+            print(f"  ⚠️  Crossfade arm failed: {e}")
+
+    def _advance_crossfaded(self, b_offset: float = 0.0, index: int = -1) -> None:
+        """Called by the player the instant the crossfade mix becomes audible.
+
+        Advances queue state + UI to the track that is already playing,
+        mirroring what _play_index does after starting a song — but without
+        touching the mixer (the audio never stops).
+        """
+        def _apply():
+            try:
+                if index >= 0 and index < len(self.rq.queue):
+                    self.rq.play(index)
+                else:
+                    self.rq.skip_next()
+                self._playing = True
+                self._jingle_playing = False
+                self._ad_playing = False
+                self._refresh_queue()
+                self._update_now_playing()
+                current = self.rq.current
+                if current:
+                    self.np_time_total.configure(text=current.duration_str)
+                    # (Normalizer gain already applied by the player's mixer chain.)
+                    if streamer.is_streaming and current.file_path:
+                        streamer.on_track_change(current.title, current.artist, current.file_path)
+                    self.after(100, lambda fp=current.file_path: self._load_waveform(fp))
+            except Exception as e:
+                print(f"  ⚠️  Crossfade UI handoff failed: {e}")
+        self.after(0, _apply)
 
     def _toggle_auto_cue(self) -> None:
         self._auto_cue = not getattr(self, "_auto_cue", False)
@@ -3569,7 +3674,17 @@ class RadioApp(ctk.CTk):
         name = ao.get("name")
         if not endpoint_id and not name:
             return
-        # Already on the remembered speaker? Skip the switch entirely.
+        # Preferred: route the C++ WASAPI engine straight to the remembered
+        # endpoint — works on every Windows build and leaves the OS default
+        # device alone.
+        if endpoint_id and self.audio_player.move_to_endpoint(endpoint_id):
+            self._wasapi_device = endpoint_id
+            try:
+                self._refresh_device_list()
+            except Exception:
+                pass
+            return
+        # Fallbacks: pygame stays the engine — switch the OS default.
         try:
             current = self.audio_mgr.get_selected_device()
         except Exception:
@@ -3755,6 +3870,17 @@ class RadioApp(ctk.CTk):
             self.crossfade.duration = x.get("duration", 3.0)
             self.crossfade.fade_in = x.get("fade_in", True)
             self.crossfade.fade_out = x.get("fade_out", True)
+            # Mirror the restored switch into the player's crossfade engine.
+            try:
+                self.audio_player.crossfade_enabled = self.crossfade.enabled
+                self.audio_player.crossfade_duration = max(1.0, self.crossfade.duration or 4.0)
+                if hasattr(self, "btn_crossfade"):
+                    self.btn_crossfade.configure(
+                        fg_color=COLORS["accent"] if self.crossfade.enabled else "transparent",
+                        text_color="#fff" if self.crossfade.enabled else COLORS["text"],
+                    )
+            except Exception:
+                pass
         # Auto-cue (skip leading silence)
         ac = bool(settings.get("auto_cue", False))
         self._auto_cue = ac
@@ -5727,9 +5853,26 @@ class RadioApp(ctk.CTk):
 # ═══════════════════════════════════════════════════════════════
 
 def _splash_version() -> str:
-    """Read the canonical version from installer.iss (fallback: dev)."""
+    """The installer's version, however we can get it.
+
+    Order: version.txt (stamped from installer.iss by build.py — the
+    packaged app has no installer.iss beside it), then installer.iss
+    directly (running from source), else the PyInstaller _MEIPASS data
+    dir, else "dev".
+    """
+    import re
+    candidates = [Path(__file__).with_name("version.txt")]
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        candidates.append(Path(meipass) / "version.txt")
+    for candidate in candidates:
+        try:
+            text = candidate.read_text(encoding="utf-8").strip()
+            if text:
+                return text
+        except Exception:
+            pass
     try:
-        import re
         content = Path(__file__).with_name("installer.iss").read_text(encoding="utf-8")
         match = re.search(r'^\s*#define\s+MyAppVersion\s+"([^"]+)"', content, re.MULTILINE)
         if match:
@@ -5793,23 +5936,66 @@ class FreQSplash(ctk.CTkToplevel):
                 img = Image.open(image_path).convert("RGBA")
                 img = img.resize((w, h), Image.LANCZOS)
                 # Light uniform tint so a busy photo never fights the text.
+                # NOTE: BG-based — the transparent CTkFrame over this image
+                # paints the toplevel's BG color, so the scrim must melt
+                # into the SAME color or the frame edge shows as a line.
                 base = Image.alpha_composite(
-                    img, Image.new("RGBA", (w, h), (16, 20, 27, 55))
+                    img, Image.new("RGBA", (w, h), (20, 24, 31, 55))
                 )
-                # Horizontal scrim: near-solid panel color on the left
-                # half, easing to a light veil on the right.
+                # Horizontal scrim: near-solid panel color on the left,
+                # easing into a light veil on the right. The flat region
+                # extends PAST the text frame's right edge (left_w = 56%)
+                # so the frame's paint and the composite are identical
+                # where the frame ends — otherwise the frame edge shows
+                # as a vertical line where the photo suddenly appears.
+                # A smoothstep curve (zero slope at both ends of the ramp)
+                # keeps the transition itself invisible.
+                a_start, a_end = 255, 50
+                ramp0, ramp1 = 0.56, 0.88
                 grad = Image.new("L", (w, 1))
                 for x in range(w):
                     t = x / max(1, w - 1)
-                    if t <= 0.50:
-                        a = 252
-                    elif t >= 0.80:
-                        a = 55
+                    if t <= ramp0:
+                        a = a_start
+                    elif t >= ramp1:
+                        a = a_end
                     else:
-                        a = int(252 + (55 - 252) * ((t - 0.50) / 0.30))
+                        u = (t - ramp0) / (ramp1 - ramp0)
+                        u = u * u * (3.0 - 2.0 * u)   # smoothstep
+                        a = int(a_start + (a_end - a_start) * u)
                     grad.putpixel((x, 0), a)
-                scrim = Image.new("RGBA", (w, h), (16, 20, 27, 0))
-                scrim.putalpha(grad.resize((w, h)))
+
+                # Vertical edge melt: the photo fades into the panel color as
+                # it meets the window's top/bottom/right edges, so no edge
+                # reads as a cut line (full-bleed look). Combined with the
+                # horizontal scrim via max() — whichever veil is stronger
+                # wins at each pixel.
+                def _smooth(u: float) -> float:
+                    u = max(0.0, min(1.0, u))
+                    return u * u * (3.0 - 2.0 * u)
+
+                vgrad = Image.new("L", (1, h))
+                top_fade, bottom_fade, right_fade = 24, 40, 20
+                for y in range(h):
+                    s = 0
+                    if y < top_fade:
+                        s = int(200 * (1.0 - _smooth(y / top_fade)))
+                    elif y >= h - bottom_fade:
+                        s = int(200 * (1.0 - _smooth((h - 1 - y) / bottom_fade)))
+                    vgrad.putpixel((0, y), s)
+                rgrad = Image.new("L", (w, 1))
+                for x in range(w):
+                    d = w - 1 - x
+                    rgrad.putpixel((x, 0),
+                                   int(140 * (1.0 - _smooth(d / right_fade)))
+                                   if d < right_fade else 0)
+                from PIL import ImageChops
+                alpha = ImageChops.lighter(
+                    grad.resize((w, h)),
+                    ImageChops.lighter(vgrad.resize((w, h)), rgrad.resize((w, h))),
+                )
+                scrim = Image.new("RGBA", (w, h), (20, 24, 31, 0))
+                scrim.putalpha(alpha)
                 base = Image.alpha_composite(base, scrim)
                 self._photo = ImageTk.PhotoImage(
                     base.convert("RGB"), master=self
@@ -5831,8 +6017,10 @@ class FreQSplash(ctk.CTkToplevel):
         left.pack_propagate(False)
 
         # Animated logo: equalizer bars on a canvas (cheap and smooth).
+        # Canvas bg = BG so it melts into the transparent frame's paint
+        # (a different shade here shows up as a box around the logo).
         self._logo = FreQLogoCanvas(left, width=120, height=64,
-                                    bar_color=self.ACCENT, bg=self.PANEL)
+                                    bar_color=self.ACCENT, bg=self.BG)
         self._logo.pack(pady=(96, 18))
 
         ctk.CTkLabel(

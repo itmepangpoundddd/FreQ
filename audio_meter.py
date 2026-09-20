@@ -11,6 +11,7 @@ try:
     from native_audio_meter import (
         analyze_s16le_stereo,
         compute_spectrum as _native_compute_spectrum,
+        crossfade_mix as _native_crossfade_mix,
         find_silence_end as _native_find_silence_end,
         loudness_new as _native_loudness_new,
         loudness_process as _native_loudness_process,
@@ -28,6 +29,7 @@ try:
     loudness_reset = _native_loudness_reset
     samples_to_stereo_pcm = _native_samples_to_stereo_pcm
     find_silence_end = _native_find_silence_end
+    crossfade_mix = _native_crossfade_mix
 except ImportError:
     NATIVE_AVAILABLE = False
 
@@ -375,6 +377,73 @@ except ImportError:
             trail * 1000.0 >= min_ms and trail or 0.0,
         )
 
+    def crossfade_mix(
+        pcm_a: bytes, pcm_b: bytes, offset_a: int = 0, offset_b: int = 0,
+        mix_frames: int = 0, gain_a: float = 1.0, gain_b: float = 1.0,
+        fade_start: int = -1, fade_len: int = 0,
+    ) -> bytes:
+        """Equal-power overlap of two s16le stereo PCM buffers (Python)."""
+        # Chunk mode: weights taken at the absolute fade position.
+        if fade_start >= 0 and fade_len > 0:
+            frames_a = len(pcm_a) // 4
+            frames_b = len(pcm_b) // 4
+            total = max(frames_a, frames_b)
+            out = bytearray(total * 4)
+            for i in range(total):
+                t = min(1.0, (fade_start + i) / fade_len)
+                wa = math.cos(t * math.pi / 2)
+                wb = math.sin(t * math.pi / 2)
+                l = r = 0.0
+                if i < frames_a:
+                    la, ra = struct.unpack_from("<hh", pcm_a, i * 4)
+                    l = gain_a * wa * la
+                    r = gain_a * wa * ra
+                if i < frames_b:
+                    lb, rb = struct.unpack_from("<hh", pcm_b, i * 4)
+                    l += gain_b * wb * lb
+                    r += gain_b * wb * rb
+                struct.pack_into(
+                    "<hh", out, i * 4,
+                    int(max(-32768.0, min(32767.0, l))),
+                    int(max(-32768.0, min(32767.0, r))),
+                )
+            return bytes(out)
+        frames_a = len(pcm_a) // 4
+        frames_b = len(pcm_b) // 4
+        avail_a = max(0, frames_a - offset_a)
+        avail_b = max(0, frames_b - offset_b)
+        n = min(avail_a, avail_b)
+        if mix_frames > 0 and mix_frames < n:
+            n = mix_frames
+        tail_b = frames_b - offset_b - n
+        total = offset_a + n + max(0, tail_b)
+        out = bytearray(total * 4)
+        import math
+        for i in range(total):
+            l = r = 0.0
+            if offset_a <= i < offset_a + n:
+                ja = i - offset_a
+                t = ja / (n - 1) if n > 1 else 0.0
+                wa = math.cos(t * math.pi / 2)
+                fa = (offset_a + ja) * 4
+                la, ra = struct.unpack_from("<hh", pcm_a, fa)
+                l = gain_a * wa * la
+                r = gain_a * wa * ra
+            if i >= offset_a:
+                jb = i - offset_a
+                fb = offset_b + jb
+                if fb < frames_b:
+                    t = jb / (n - 1) if n > 1 else 1.0
+                    t = min(t, 1.0)
+                    wb = math.sin(t * math.pi / 2)
+                    lb, rb = struct.unpack_from("<hh", pcm_b, fb * 4)
+                    l += gain_b * wb * lb
+                    r += gain_b * wb * rb
+            l = max(-32768.0, min(32767.0, l))
+            r = max(-32768.0, min(32767.0, r))
+            struct.pack_into("<hh", out, i * 4, int(l), int(r))
+        return bytes(out)
+
 
 class LoudnessNormalizer:
     """Stream-loudness normalizer.
@@ -537,6 +606,166 @@ def detect_leading_silence(
     except Exception:
         _SILENCE_CACHE[filepath] = (0.0, 0.0)
     return _SILENCE_CACHE[filepath][0]
+
+
+# ── Crossfade: per-track loudness + equal-power overlap rendering ──
+
+_LUFS_CACHE: dict[str, float] = {}
+
+
+def measure_file_lufs(filepath: str, max_seconds: float = 24.0) -> float:
+    """Integrated loudness (LUFS) of a file via the BS.1770-4 meter.
+
+    Decodes up to ``max_seconds`` from the middle of the track (intros and
+    outros are often quiet and would skew the reading) and feeds it to the
+    native meter — the Python fallback when the extension is missing.
+    Cached per path; returns -14.0 (a safe neutral reference) when the
+    measurement is impossible or meaningless (silent/empty decode).
+    """
+    if filepath in _LUFS_CACHE:
+        return _LUFS_CACHE[filepath]
+    lufs = -14.0
+    try:
+        import subprocess
+        from player import _ffmpeg_exe, _ffprobe_exe
+        dur = 0.0
+        try:
+            probe = subprocess.run(
+                [
+                    _ffprobe_exe(), "-v", "error",
+                    "-show_entries", "format=duration",
+                    "-of", "default=noprint_wrappers=1:nokey=1", filepath,
+                ],
+                capture_output=True, text=True, timeout=10,
+            )
+            dur = float(probe.stdout.strip() or 0)
+        except Exception:
+            dur = 0.0
+        start = 0.0
+        if dur > max_seconds + 4.0:
+            start = min((dur - max_seconds) / 2.0, dur - max_seconds)
+        result = subprocess.run(
+            [
+                _ffmpeg_exe(), "-v", "quiet", "-ss", f"{start:.2f}",
+                "-i", filepath, "-t", str(max_seconds),
+                "-ac", "2", "-ar", "48000", "-f", "s16le", "-y", "pipe:1",
+            ],
+            capture_output=True, timeout=30,
+        )
+        if result.returncode == 0 and result.stdout:
+            handle = loudness_new(48000.0)
+            data = result.stdout
+            chunk = 48000 * 4  # 1 s of stereo s16le
+            final = -70.0
+            fed = False
+            for off in range(0, len(data) - 3, chunk):
+                final = loudness_process(handle, data[off:off + chunk])
+                fed = True
+            if not fed and len(data) >= 4:
+                final = loudness_process(handle, data)
+                fed = True
+            if fed and math.isfinite(final) and final > -59.0:
+                lufs = final
+    except Exception:
+        lufs = -14.0
+    _LUFS_CACHE[filepath] = lufs
+    return lufs
+
+
+_CROSSFADE_RATE = 44100  # render rate — matches pygame mixer init
+
+
+def build_crossfade_file(
+    a_path: str, b_path: str, overlap: float = 4.0,
+    out_path: Optional[str] = None,
+    gain_a: float = 1.0, gain_b: float = 1.0,
+) -> Optional[tuple[str, float]]:
+    """Render A's tail into B's head as one equal-power-crossfaded file.
+
+    Decodes A's last ``overlap`` seconds and all of B, mixes them with the
+    native ``crossfade_mix`` (Python fallback when unavailable), then encodes
+    the result to MP3. Returns ``(file_path, b_offset_seconds)`` where
+    ``b_offset_seconds`` is how far into B the mix point lies — pass it to
+    the player so timeline/seek stay correct. Returns None on any failure;
+    callers should fall back to a plain sequential start.
+    """
+    try:
+        import subprocess
+        import tempfile
+        import uuid as _uuid
+        import wave as _wave
+        from pathlib import Path as _Path
+        from player import _ffmpeg_exe, _ffprobe_exe
+
+        probe = subprocess.run(
+            [
+                _ffprobe_exe(), "-v", "error",
+                "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1", a_path,
+            ],
+            capture_output=True, text=True, timeout=10,
+        )
+        dur_a = float(probe.stdout.strip() or 0)
+        if dur_a <= 0:
+            return None
+        start_a = max(0.0, dur_a - overlap - 0.25)  # pad: VBR timing slop
+        tail_a = subprocess.run(
+            [
+                _ffmpeg_exe(), "-v", "quiet", "-ss", f"{start_a:.3f}",
+                "-i", a_path, "-t", f"{overlap + 0.5:.3f}",
+                "-ac", "2", "-ar", str(_CROSSFADE_RATE),
+                "-f", "s16le", "-y", "pipe:1",
+            ],
+            capture_output=True, timeout=30,
+        )
+        full_b = subprocess.run(
+            [
+                _ffmpeg_exe(), "-v", "quiet", "-i", b_path,
+                "-ac", "2", "-ar", str(_CROSSFADE_RATE),
+                "-f", "s16le", "-y", "pipe:1",
+            ],
+            capture_output=True, timeout=120,
+        )
+        if tail_a.returncode != 0 or full_b.returncode != 0:
+            return None
+        a_pcm = tail_a.stdout
+        b_pcm = full_b.stdout
+        if len(a_pcm) < 4 or len(b_pcm) < 4:
+            return None
+
+        mix_frames = int(overlap * _CROSSFADE_RATE)
+        mixed = crossfade_mix(a_pcm, b_pcm, 0, 0, mix_frames, gain_a, gain_b)
+        tail_frames = mix_frames if mix_frames * 4 <= len(b_pcm) else len(b_pcm) // 4
+        tail_b = b_pcm[tail_frames * 4:]
+
+        if out_path is None:
+            out_path = str(
+                _Path(tempfile.gettempdir()) / f"freq_xf_{_uuid.uuid4().hex}.mp3"
+            )
+        wav_path = out_path + ".wav"
+        with _wave.open(wav_path, "wb") as w:
+            w.setnchannels(2)
+            w.setsampwidth(2)
+            w.setframerate(_CROSSFADE_RATE)
+            w.writeframes(mixed + tail_b)
+        enc = subprocess.run(
+            [
+                _ffmpeg_exe(), "-v", "quiet", "-y", "-i", wav_path,
+                "-c:a", "libmp3lame", "-q:a", "2", out_path,
+            ],
+            capture_output=True, timeout=60,
+        )
+        try:
+            import os as _os
+            _os.remove(wav_path)
+        except Exception:
+            pass
+        if enc.returncode != 0 or not _Path(out_path).is_file():
+            return None
+        b_offset = tail_frames / _CROSSFADE_RATE
+        return out_path, b_offset
+    except Exception:
+        return None
 
 
 meter = AudioMeter()

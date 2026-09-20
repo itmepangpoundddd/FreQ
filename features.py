@@ -24,12 +24,6 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import Callable, Optional
 
-try:
-    import numpy as np
-    NUMPY_AVAILABLE = True
-except ImportError:
-    NUMPY_AVAILABLE = False
-
 # Keep feature tools working in packaged builds where FFmpeg is bundled
 # beside the application instead of being present on PATH.
 from player import _ffmpeg_exe, _ffprobe_exe
@@ -212,7 +206,10 @@ class VolumeNormalizer:
 
     def analyze_file(self, filepath: str) -> float:
         """Analyze file loudness, return required gain"""
-        if not NUMPY_AVAILABLE or not os.path.isfile(filepath):
+        # Note: analysis shells out to ffmpeg's loudnorm filter; numpy was
+        # never used here, so the old NUMPY_AVAILABLE gate only disabled the
+        # feature for no reason on machines without numpy.
+        if not os.path.isfile(filepath):
             return 1.0
 
         try:

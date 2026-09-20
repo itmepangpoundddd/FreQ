@@ -17,6 +17,7 @@ dependencies:
 
 from __future__ import annotations
 
+import math
 import os
 import subprocess
 import sys
@@ -134,8 +135,42 @@ class AudioPlayer:
         self._seek_trimmed_files: list[str] = []   # temp files created by seek
         # Auto-cue: skip leading silence at the start of each track
         self._auto_cue: bool = False
+        # Crossfade engine: queue the next track so playback flows
+        # A-tail → equal-power mix → B without a stop/start gap.
+        self._crossfade_enabled: bool = False
+        self._crossfade_duration: float = 4.0
+        self._xf_pending_path: Optional[str] = None     # queued next-track file
+        self._xf_pending_offset: float = 0.0            # where B starts inside it
+        self._xf_pending_duration: float = 0.0          # reported duration of B
+        self._xf_pending_index: int = -1                # queue index of B
+        self._xf_b_source: Optional[str] = None         # B's original path (seeks)
+        self._xf_mixed_path: Optional[str] = None       # temp mix file WE created
+        self._xf_prepared: bool = False                 # file is rendered+loaded
+        self._xf_preloading: bool = False               # render thread running
+        self._xf_armed: bool = False                    # mix was queued to SDL
+        self._xf_handoff: Optional[Callable] = None     # advance callback
+        self._xf_active: bool = False                   # waiting for SDL end event
+        self._xf_handoff_fired: bool = False
         # YouTube download state
         self._yt_ready_file: Optional[str] = None  # resolved file path after YT download
+        # ── WASAPI render engine (C++) ──
+        # Playback route: "pygame" (media framework on the OS default
+        # device) or "wasapi" (native render stream on a chosen endpoint).
+        self._engine: str = "pygame"
+        self._render = None                    # native_audio_render capsule
+        self._render_module = None             # the imported module
+        self._render_endpoint: Optional[str] = None
+        self._render_base: int = 0             # emitted counter at play start
+        self._render_active: bool = False
+        self._render_done: bool = False        # A decoder reached EOF
+        self._render_b_done: bool = False      # B (crossfade) reached EOF
+        self._decoder: Optional[threading.Thread] = None
+        self._decoder_stop = threading.Event()
+        self._xf_b_proc = None                 # B decoder process (wasapi fade)
+        self._xf_fade_total: int = 0
+        self._xf_fade_pos: int = 0
+        self._xf_mix_started: bool = False
+        self._xf_gain_b: float = 1.0
 
     # ─────────────────────────────────────
     # Init / Shutdown
@@ -169,6 +204,15 @@ class AudioPlayer:
             self._initialized = False
         # Cleanup temp files
         self._cleanup_seek_files()
+        # The mix file may survive stop() when it was the loaded track;
+        # the mixer is down now, so it is safe to dispose.
+        mixed = self._xf_mixed_path
+        self._xf_mixed_path = None
+        if mixed and os.path.isfile(mixed):
+            try:
+                os.remove(mixed)
+            except Exception:
+                pass
         if self._temp_dir and self._temp_dir.exists():
             try:
                 import shutil
@@ -190,11 +234,331 @@ class AudioPlayer:
     @volume.setter
     def volume(self, v: float) -> None:
         self._volume = max(0.0, min(1.0, v))
+        if self._engine == "wasapi" and self._render is not None:
+            try:
+                self._render_module.render_set_volume(self._render, self._volume)
+            except Exception:
+                pass
         if self._initialized:
             try:
                 pygame.mixer.music.set_volume(self._volume)
             except Exception:
                 pass
+
+    # ─────────────────────────────────────
+    # WASAPI render engine (C++)
+    # ─────────────────────────────────────
+    @property
+    def engine(self) -> str:
+        """Active playback engine: "pygame" or "wasapi"."""
+        return self._engine
+
+    def use_wasapi_engine(self, endpoint_id: str = "") -> bool:
+        """Route playback through the C++ WASAPI render engine.
+
+        Audio plays on the given endpoint *only* — the OS default device
+        stays untouched. Returns False when the native module or the
+        endpoint is unavailable (pygame remains active).
+        """
+        try:
+            import native_audio_render as nar
+        except ImportError:
+            print("  ⚠️  native_audio_render not available — staying on pygame")
+            return False
+        if not self._initialized:
+            self.init()
+        if self._render is None:
+            self._render = nar.render_new()
+            self._render_module = nar
+        try:
+            nar.render_start(self._render, endpoint_id or None)
+        except Exception as e:
+            print(f"  ⚠️  WASAPI render start failed: {e}")
+            return False
+        nar.render_set_volume(self._render, self._volume)
+        self._render_endpoint = endpoint_id or None
+        self._engine = "wasapi"
+        return True
+
+    def move_to_endpoint(self, endpoint_id: str) -> bool:
+        """Switch the output endpoint; the current track keeps playing.
+
+        Migrates playback (pygame → WASAPI, or WASAPI → another endpoint)
+        by restarting the current track on the new route at the same
+        position. The OS default device is never touched.
+        """
+        was_pygame = self._engine == "pygame"
+        was_playing = self.is_playing
+        pos = self.get_position()
+        cur = self._original_file or self._current_file
+        dur = self._duration
+        if not self.use_wasapi_engine(endpoint_id):
+            return False
+        if was_playing and cur and os.path.isfile(cur):
+            if self._wasapi_start(cur, 0.0, dur):
+                if was_pygame:
+                    try:
+                        pygame.mixer.music.stop()  # old route falls silent
+                    except Exception:
+                        pass
+                if pos > 0.3:
+                    self.seek(pos)
+        return True
+
+    def use_pygame_engine(self) -> None:
+        """Switch back to pygame playback (restarts the current track)."""
+        was_playing = self.is_playing
+        pos = self.get_position()
+        cur = self._original_file or self._current_file
+        dur = self._duration
+        self._engine = "pygame"
+        self._render_active = False
+        self._render_done = False
+        self._render_b_done = False
+        self._decoder_stop.set()
+        if self._render is not None:
+            try:
+                self._render_module.render_stop(self._render)
+            except Exception:
+                pass
+        if was_playing and cur and os.path.isfile(cur) and pos > 0.5:
+            if self.play_file(cur, duration=dur):
+                self.seek(pos)
+
+    def _render_position(self) -> float:
+        """Playback position (seconds) of the WASAPI engine."""
+        if self._render is None or not self._render_active:
+            return 0.0
+        try:
+            emitted = self._render_module.render_emitted(self._render)
+            return max(0.0, (emitted - self._render_base) / 44100.0)
+        except Exception:
+            return 0.0
+
+    def _ensure_decoder(self, filepath: str) -> bool:
+        """Decode ``filepath`` to s16le stereo 44.1 kHz PCM in a thread.
+
+        ffmpeg pushes PCM into the WASAPI ring; the ring's backpressure
+        paces the decode to (slightly ahead of) realtime.
+        """
+        if not self._ffmpeg_available():
+            print("  ⚠️  ffmpeg not available — WASAPI engine needs ffmpeg")
+            return False
+        self._decoder_stop.set()
+        self._decoder_stop = threading.Event()
+        stop_event = self._decoder_stop
+        nar = self._render_module
+
+        def _decode():
+            try:
+                proc = subprocess.Popen(
+                    [_ffmpeg_exe(), "-v", "quiet", "-i", filepath,
+                     "-ac", "2", "-ar", "44100", "-f", "s16le", "-y", "pipe:1"],
+                    stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                )
+            except Exception:
+                # Treat a dead decoder as EOF so end/crossfade logic can
+                # still proceed instead of hanging in silence forever.
+                self._render_done = True
+                return
+            chunk = 44100 * 4  # 1 s of stereo s16le
+            try:
+                while not stop_event.is_set():
+                    data = proc.stdout.read(chunk)
+                    if not data:
+                        break
+                    off = 0
+                    while off < len(data) and not stop_event.is_set():
+                        w = nar.render_write(self._render, data[off:])
+                        if w == 0:
+                            time.sleep(0.03)  # ring full — realtime pacing
+                            continue
+                        off += w * 4
+                if not stop_event.is_set():
+                    self._render_done = True
+            except Exception:
+                self._render_done = True  # decoder died — unblock end logic
+            finally:
+                for closer in (proc.stdout.close, proc.kill):
+                    try:
+                        closer()
+                    except Exception:
+                        pass
+
+        self._decoder = threading.Thread(target=_decode, daemon=True)
+        self._decoder.start()
+        return True
+
+    def _start_b_decoder(self, filepath: str) -> bool:
+        """Open the crossfade B decoder (chunks are pulled lazily)."""
+        try:
+            self._xf_b_proc = subprocess.Popen(
+                [_ffmpeg_exe(), "-v", "quiet", "-i", filepath,
+                 "-ac", "2", "-ar", "44100", "-f", "s16le", "-y", "pipe:1"],
+                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            )
+        except Exception:
+            self._xf_b_proc = None
+            return False
+        return True
+
+    def _kill_b_proc(self) -> None:
+        """Terminate the crossfade B decoder subprocess (if any)."""
+        proc = self._xf_b_proc
+        self._xf_b_proc = None
+        if proc is not None:
+            try:
+                proc.stdout.close()
+            except Exception:
+                pass
+            try:
+                proc.kill()
+            except Exception:
+                pass
+
+    def _pump_render(self) -> None:
+        """Periodic WASAPI upkeep: crossfade chunk-mixing + end detection."""
+        if (self._engine != "wasapi" or not self._is_playing
+                or self._is_paused or self._render is None):
+            return
+        nar = self._render_module
+        pos = self._render_position()
+
+        # Start the crossfade render (opens B's decoder) near the track's
+        # end — the trigger is engine-agnostic; on WASAPI it arms the
+        # chunk-mixing path below instead of a pre-rendered file.
+        self._check_crossfade_trigger()
+
+        # ── Crossfade: append B chunks (faded) once A is nearly done. A's
+        # decoder EOF leaves its tail in the ring, so B mixed in from now
+        # overlaps the true tail — one clock, no drift.
+        if self._xf_b_proc is not None:
+            remaining = (self._duration - pos) if self._duration > 0 else 999.0
+            fade_s = self._xf_fade_total / 44100.0
+            # The ring is a single FIFO: A's decoder and this feeder are two
+            # producers — writing B while A is still flowing interleaves A/B
+            # chunks in random order and garbles the audio (crackle). So B
+            # starts only after A has FULLY flushed through the ring: A plays
+            # out completely, then B fades in seamlessly behind it.
+            a_flushed = (self._render_done
+                         and nar.render_buffered(self._render) <= 0.3 * 44100)
+            if (remaining <= fade_s + 0.05 and a_flushed
+                    and not self._xf_mix_started):
+                self._xf_mix_started = True
+                self._xf_pending_offset = 0.0   # B starts (at 0) right now
+                # Promote the timeline to B: keep the same output clock but
+                # shift the offset so get_position() reports B's position.
+                with self._lock:
+                    self._seek_offset = -pos
+                    if self._xf_pending_duration > 0:
+                        self._duration = self._xf_pending_duration
+                    if self._xf_pending_path:
+                        self._original_file = self._xf_pending_path
+                self._finish_crossfade()  # UI handoff: B is audible now
+            if self._xf_mix_started:
+                from audio_meter import crossfade_mix
+                stalled = 0
+                while nar.render_buffered(self._render) < 44100:
+                    try:
+                        chunk = self._xf_b_proc.stdout.read(44100 * 4)
+                    except Exception:
+                        chunk = b""
+                    if not chunk:
+                        try:
+                            self._xf_b_proc.stdout.close()
+                            self._xf_b_proc.kill()
+                        except Exception:
+                            pass
+                        self._xf_b_proc = None
+                        self._render_b_done = True
+                        break
+                    frames = len(chunk) // 4
+                    if self._xf_fade_pos < self._xf_fade_total:
+                        # NOTE: positional args — the native module does not
+                        # accept keyword arguments (METH_VARARGS).
+                        chunk = crossfade_mix(
+                            b"", bytes(chunk), 0, 0, 0,
+                            1.0, self._xf_gain_b,
+                            self._xf_fade_pos, self._xf_fade_total,
+                        )
+                        self._xf_fade_pos += frames
+                    # Feed with backpressure — a partial write must be
+                    # retried or the remaining bytes are lost forever.
+                    off = 0
+                    while off < len(chunk):
+                        w = nar.render_write(self._render, chunk[off:])
+                        if w == 0:
+                            stalled += 1
+                            if stalled > 400 or not self._is_playing:
+                                break   # engine stopped — drop the rest
+                            time.sleep(0.025)
+                            continue
+                        stalled = 0
+                        off += w * 4
+                    if not self._is_playing:
+                        return
+                return
+
+        # ── End detection: decoder(s) finished and the ring nearly drained.
+        if ((self._render_done or self._render_b_done)
+                and nar.render_buffered(self._render) <= 0.25 * 44100):
+            self._finish_playback()
+
+    def _finish_playback(self) -> None:
+        """Shared end-of-track handling for both engines."""
+        self._is_playing = False
+        self._is_paused = False
+        self._render_active = False
+        self._current_file = None
+        cb = self._on_finish
+        self._on_finish = None
+        if cb:
+            try:
+                cb()
+            except Exception as e:
+                print(f"  ⚠️  finish callback failed: {e}")
+
+    def _wasapi_start(self, filepath: str, seek_offset: float,
+                      duration: float) -> bool:
+        """Start WASAPI playback of ``filepath`` (shared by play/seek)."""
+        nar = self._render_module
+        if nar is None or self._render is None:
+            return False
+        with self._lock:
+            self._render_done = False
+            self._render_b_done = False
+            self._kill_b_proc()
+            self._xf_mix_started = False
+            self._xf_fade_total = 0
+            self._xf_fade_pos = 0
+            self._xf_gain_b = 1.0
+            self._xf_pending_path = None
+            self._xf_pending_index = -1
+            self._xf_pending_offset = 0.0
+            self._xf_prepared = False
+            self._xf_preloading = False
+            self._xf_armed = False
+            self._xf_active = False
+            self._xf_handoff_fired = False
+            self._xf_handoff = None
+            self._xf_mixed_path = None
+            try:
+                nar.render_clear(self._render)
+                nar.render_set_volume(self._render, self._volume)
+            except Exception:
+                return False
+            self._current_file = filepath
+            self._original_file = filepath
+            self._render_active = True
+            self._render_base = nar.render_emitted(self._render)
+            self._is_playing = True
+            self._is_paused = False
+            self._seek_offset = seek_offset
+            self._play_start_time = time.time()
+            self._pause_offset = 0.0
+            self._duration = duration
+            self._start_progress_monitor()
+        return self._ensure_decoder(filepath)
 
     # ─────────────────────────────────────
     # Play a Song
@@ -207,6 +571,20 @@ class AudioPlayer:
         if not os.path.isfile(filepath):
             print(f"  ❌  File not found: {filepath}")
             return False
+
+        # WASAPI engine: decode into the native render stream instead of
+        # pygame's music channel. Called OUTSIDE the lock — _wasapi_start
+        # locks internally (threading.Lock is not reentrant).
+        if self._engine == "wasapi" and self._render is not None:
+            seek = 0.0
+            if self._auto_cue:
+                skipped, cue_path = self._apply_auto_cue(filepath)
+                if cue_path:
+                    filepath = cue_path
+                    seek = skipped
+            success = self._wasapi_start(filepath, seek, duration)
+            self._on_finish = on_finish
+            return success
 
         with self._lock:
             try:
@@ -232,6 +610,26 @@ class AudioPlayer:
 
                 pygame.mixer.music.load(filepath)
                 pygame.mixer.music.play()
+                # Reset crossfade state for the new track (dispose the
+                # previous mix file — it has finished playing by now).
+                old_mixed = self._xf_mixed_path
+                self._xf_mixed_path = None
+                if old_mixed and old_mixed != filepath and os.path.isfile(old_mixed):
+                    try:
+                        os.remove(old_mixed)
+                    except Exception:
+                        pass
+                self._xf_pending_path = None
+                self._xf_pending_offset = 0.0
+                self._xf_pending_duration = 0.0
+                self._xf_pending_index = -1
+                self._xf_b_source = None
+                self._xf_prepared = False
+                self._xf_preloading = False
+                self._xf_armed = False
+                self._xf_active = False
+                self._xf_handoff_fired = False
+                self._xf_handoff = None
                 self._current_file = filepath
                 self._is_playing = True
                 self._is_paused = False
@@ -375,6 +773,20 @@ class AudioPlayer:
             return
         with self._lock:
             if self._is_playing and not self._is_paused:
+                if self._engine == "wasapi":
+                    # WASAPI native pause: the stream plays silence while the
+                    # ring stays frozen, so resume continues exactly here.
+                    # (Muting alone would keep draining the ring — playback
+                    # would silently advance while paused.)
+                    self._pause_offset = self._render_position()
+                    self._is_paused = True
+                    if self._render is not None:
+                        try:
+                            # NOTE: positional args — native module is METH_VARARGS.
+                            self._render_module.render_pause(self._render, 1)
+                        except Exception:
+                            pass
+                    return
                 try:
                     pygame.mixer.music.pause()
                     # Capture the position BEFORE marking paused —
@@ -389,6 +801,15 @@ class AudioPlayer:
             return
         with self._lock:
             if self._is_paused:
+                if self._engine == "wasapi":
+                    self._is_paused = False
+                    self._play_start_time = time.time() - self._pause_offset
+                    if self._render is not None:
+                        try:
+                            self._render_module.render_pause(self._render, 0)
+                        except Exception:
+                            pass
+                    return
                 try:
                     pygame.mixer.music.unpause()
                     self._is_paused = False
@@ -396,7 +817,29 @@ class AudioPlayer:
                 except Exception:
                     pass
 
-    def reopen_output(self) -> bool:
+    def reopen_output(self, endpoint_id: Optional[str] = None) -> bool:
+        """Re-open audio output (WASAPI) or re-init the mixer (pygame)."""
+        # WASAPI engine: restart the render stream on the given endpoint —
+        # the buffered audio is preserved, so the track keeps flowing.
+        if self._engine == "wasapi":
+            try:
+                import native_audio_render as nar
+            except ImportError:
+                return False
+            if self._render is None:
+                self._render = nar.render_new()
+                self._render_module = nar
+            try:
+                nar.render_stop(self._render)
+                nar.render_start(self._render, endpoint_id or None)
+            except Exception as e:
+                print(f"  ⚠️  Cannot move WASAPI output: {e}")
+                return False
+            self._render_endpoint = endpoint_id or None
+            return True
+        return self._reopen_pygame_output()
+
+    def _reopen_pygame_output(self) -> bool:
         """Re-initialize the mixer so playback follows the new default output.
 
         The currently playing track keeps running: position, seek state and
@@ -439,16 +882,45 @@ class AudioPlayer:
             return
         with self._lock:
             self._progress_stop_event.set()
-            try:
-                pygame.mixer.music.stop()
-            except Exception:
-                pass
+            self._decoder_stop.set()
+            if self._engine == "wasapi":
+                if self._render is not None:
+                    try:
+                        # Un-pause first or the stream stays silent forever.
+                        self._render_module.render_pause(self._render, 0)
+                        self._render_module.render_clear(self._render)
+                    except Exception:
+                        pass
+                self._render_active = False
+                self._render_done = False
+                self._render_b_done = False
+                self._kill_b_proc()
+                self._xf_mix_started = False
+            else:
+                try:
+                    pygame.mixer.music.stop()
+                except Exception:
+                    pass
             self._is_playing = False
             self._is_paused = False
             self._current_file = None
             self._on_finish = None
             self._seek_offset = 0.0
             self._original_file = None
+            # A stopped transport has no timeline — any pending/armed
+            # crossfade is dead. (Inline resets: we already hold the
+            # non-reentrant lock; _invalidate_crossfade would deadlock.)
+            self._xf_pending_path = None
+            self._xf_pending_offset = 0.0
+            self._xf_pending_duration = 0.0
+            self._xf_pending_index = -1
+            self._xf_b_source = None
+            self._xf_prepared = False
+            self._xf_preloading = False
+            self._xf_armed = False
+            self._xf_active = False
+            self._xf_handoff_fired = False
+            self._xf_handoff = None
             self._cleanup_seek_files()
 
     def get_position(self) -> float:
@@ -457,6 +929,10 @@ class AudioPlayer:
             return 0.0
         if not self._is_playing:
             return 0.0
+        if self._engine == "wasapi" and self._render_active:
+            if self._is_paused:
+                return self._seek_offset + self._pause_offset
+            return self._seek_offset + self._render_position()
         if self._is_paused:
             return self._seek_offset + self._pause_offset
         return self._seek_offset + (time.time() - self._play_start_time)
@@ -489,6 +965,14 @@ class AudioPlayer:
         # If seeking to the very start, just restart from original file
         if seconds <= 0.1:
             self._do_seek(source, 0.0, total)
+            return
+
+        # WASAPI: rebuild the decode pipeline from the new offset.
+        if self._engine == "wasapi" and self._render is not None:
+            if not self._ffmpeg_available():
+                print("  ⚠️  ffmpeg not installed — seek unavailable")
+                return
+            self._wasapi_start(source, seconds, total)
             return
 
         # Use ffmpeg to create a trimmed file from the seek point
@@ -536,6 +1020,10 @@ class AudioPlayer:
             pygame.mixer.music.stop()
         except Exception:
             pass
+        # Seeking jumps the timeline: a rendered/queued crossfade mix belongs
+        # to the OLD timeline. stop() drops SDL's queued file — the pending
+        # state must follow, or the handoff fires on stale data later.
+        self._invalidate_crossfade()
 
         try:
             pygame.mixer.music.load(filepath)
@@ -594,6 +1082,15 @@ class AudioPlayer:
             except Exception:
                 pass
         self._seek_trimmed_files.clear()
+        # Crossfade: dispose only the mix file WE rendered (never the
+        # pending next-track source, which is the user's own music file).
+        mixed = self._xf_mixed_path
+        self._xf_mixed_path = None
+        if mixed and mixed != self._current_file and os.path.isfile(mixed):
+            try:
+                os.remove(mixed)
+            except Exception:
+                pass
 
     @property
     def is_playing(self) -> bool:
@@ -655,6 +1152,268 @@ class AudioPlayer:
         except Exception:
             return False
 
+    @property
+    def crossfade_enabled(self) -> bool:
+        return self._crossfade_enabled
+
+    @crossfade_enabled.setter
+    def crossfade_enabled(self, enabled: bool) -> None:
+        self._crossfade_enabled = bool(enabled)
+        if not enabled:
+            self.clear_next_track()
+
+    @property
+    def crossfade_duration(self) -> float:
+        return self._crossfade_duration
+
+    @crossfade_duration.setter
+    def crossfade_duration(self, seconds: float) -> None:
+        try:
+            self._crossfade_duration = max(1.0, float(seconds))
+        except (TypeError, ValueError):
+            pass
+
+    @property
+    def crossfade_active(self) -> bool:
+        """True while a crossfade mix is queued and playing on the music channel."""
+        return self._xf_active
+
+    def set_next_track(
+        self, filepath: str, duration: float = 0.0, index: int = -1,
+        handoff: Optional[Callable] = None,
+    ) -> None:
+        """Queue the next track so the player can crossfade into it.
+
+        Call after the current track has started playing. When the current
+        track approaches its end, the engine renders an equal-power overlap
+        of the current track's tail into the next track's head (C++ mixer,
+        loudness-matched gains), queues the result behind the current
+        output with ``pygame.mixer.music.queue`` — SDL switches between the
+        two buffers with zero gap — and fires ``handoff(b_offset, index)``
+        right at the switch so the caller can update queue/UI state.
+        """
+        if not self.available or not os.path.isfile(filepath):
+            return
+        with self._lock:
+            self._xf_pending_path = filepath
+            self._xf_b_source = filepath
+            self._xf_pending_offset = 0.0
+            self._xf_pending_duration = duration
+            self._xf_pending_index = index
+            self._xf_prepared = False
+            self._xf_preloading = False
+            self._xf_handoff = handoff
+
+    def clear_next_track(self) -> None:
+        """Drop a queued crossfade track (e.g. queue order changed)."""
+        with self._lock:
+            if not self._xf_armed:
+                self._xf_pending_path = None
+                self._xf_pending_index = -1
+                self._xf_prepared = False
+                self._xf_preloading = False
+
+    def _invalidate_crossfade(self) -> None:
+        """Drop any pending/armed crossfade mix.
+
+        Seeking (or any timeline jump) invalidates a rendered mix: the
+        queued file belongs to the OLD timeline and must never hand off —
+        otherwise a stale mix plays and the queue advances on wrong data.
+        """
+        with self._lock:
+            self._xf_pending_path = None
+            self._xf_pending_offset = 0.0
+            self._xf_pending_duration = 0.0
+            self._xf_pending_index = -1
+            self._xf_prepared = False
+            self._xf_preloading = False
+            self._xf_armed = False
+            self._xf_active = False
+            self._xf_handoff_fired = False
+            self._xf_handoff = None
+
+    def _render_and_arm_crossfade(self) -> None:
+        """Worker: build the overlap file, load it, queue it on SDL."""
+        with self._lock:
+            pending = self._xf_pending_path
+            index = self._xf_pending_index
+            reported = self._xf_pending_duration
+            if not pending:
+                return
+            self._xf_preloading = True
+            current = self._current_file
+            offset = self._seek_offset
+        if not pending:
+            return
+        try:
+            from audio_meter import build_crossfade_file, measure_file_lufs
+            pos = offset + (time.time() - self._play_start_time
+                            if not self._is_paused else self._pause_offset)
+            remaining = self._duration - pos if self._duration > 0 else 0.0
+            overlap = max(1.0, min(self._crossfade_duration,
+                                   max(0.5, remaining - 0.2)))
+            if self._duration > 0 and remaining - overlap < 0.1:
+                overlap = max(0.5, remaining * 0.5)
+            ga = gb = 1.0
+            if current and os.path.isfile(current):
+                la = measure_file_lufs(current)
+                lb = measure_file_lufs(pending)
+                if math.isfinite(la) and math.isfinite(lb):
+                    gb = 10 ** ((la - lb) / 20.0)
+                    gb = max(0.5, min(2.0, gb))
+                    ga = 1.0
+            # WASAPI engine: stream B's chunks faded into the live ring —
+            # the two tracks genuinely share one output clock.
+            if self._engine == "wasapi":
+                with self._lock:
+                    if not self._start_b_decoder(pending):
+                        self._xf_pending_path = None
+                        self._xf_pending_index = -1
+                        self._xf_preloading = False
+                        return
+                    self._xf_pending_offset = 0.0
+                    self._xf_pending_duration = reported
+                    self._xf_pending_index = index
+                    # The gain ramp must finish exactly when B ends — clamp
+                    # the window to B's length or a short B leaves A's tail
+                    # playing un-faded after the fade "ended".
+                    fade_secs = min(overlap, reported) if reported > 0 else overlap
+                    self._xf_fade_total = int(fade_secs * 44100)
+                    self._xf_fade_pos = 0
+                    self._xf_gain_b = gb
+                    # NOTE: _xf_handoff was already stored by set_next_track.
+                    self._xf_preloading = False
+                    self._xf_armed = True
+                print(f"  🎚️  Crossfade armed (WASAPI): overlap {overlap:.1f}s, "
+                      f"gain B ×{gb:.2f}")
+                return
+            res = build_crossfade_file(current or "", pending, overlap,
+                                       gain_a=ga, gain_b=gb)
+            if not res:
+                with self._lock:
+                    self._xf_pending_path = None
+                    self._xf_pending_index = -1
+                return
+            xf_path, b_offset = res
+            with self._lock:
+                # Re-check state: seek/stop/new track during the render
+                # invalidates the handoff. Dispose the fresh mix file.
+                if (self._xf_pending_path != pending
+                        or not self._is_playing
+                        or self._xf_armed):
+                    try:
+                        os.remove(xf_path)
+                    except Exception:
+                        pass
+                    return
+                try:
+                    # NOTE: queue() alone — a load() here would stop the
+                    # currently playing track and idle the mixer.
+                    pygame.mixer.music.queue(xf_path)
+                except Exception:
+                    self._xf_pending_path = None
+                    self._xf_pending_index = -1
+                    try:
+                        os.remove(xf_path)
+                    except Exception:
+                        pass
+                    return
+                self._xf_mixed_path = xf_path
+                self._xf_pending_offset = b_offset
+                self._xf_pending_path = xf_path
+                # B shorter than the overlap window → negative duration;
+                # clamp so the switch guard keeps the old (valid) duration.
+                self._xf_pending_duration = max(0.0, reported - b_offset)
+                self._xf_prepared = True
+                self._xf_preloading = False
+                self._xf_armed = True
+                self._xf_active = True
+                self._xf_handoff_fired = False
+                print(f"  🎚️  Crossfade armed: overlap {overlap:.1f}s, "
+                      f"gain B ×{gb:.2f}")
+        except Exception as e:
+            print(f"  ⚠️  Crossfade render failed: {e}")
+            with self._lock:
+                self._xf_pending_path = None
+                self._xf_pending_index = -1
+                self._xf_preloading = False
+
+    def _check_crossfade_trigger(self) -> None:
+        """Called by the progress monitor — starts the render near the end."""
+        if not self._crossfade_enabled:
+            return
+        with self._lock:
+            if (not self._is_playing or self._is_paused
+                    or self._xf_prepared or self._xf_preloading
+                    or self._xf_armed or self._xf_active
+                    or not self._xf_pending_path):
+                return
+            if self._duration <= 0:
+                return
+            pos = self._seek_offset + (time.time() - self._play_start_time)
+            remaining = self._duration - pos
+            # Start early enough that the render (1-2 s) finishes before the
+            # mix point; never before 3/4 of the track has actually played.
+            if remaining > self._crossfade_duration + 1.5:
+                return
+            if remaining < self._crossfade_duration * 0.35:
+                return  # too late — let the normal end path handle it
+            self._xf_preloading = True
+        threading.Thread(
+            target=self._render_and_arm_crossfade, daemon=True
+        ).start()
+
+    def _check_crossfade_switch(self) -> None:
+        """Detect that SDL switched from track A into the queued mix (B).
+
+        Re-anchors the wall-clock timeline to B (offset, duration, original
+        file for future seeks) and fires the handoff so the GUI can advance
+        the queue exactly when B becomes audible.
+        """
+        with self._lock:
+            if not self._xf_armed or self._xf_handoff_fired or self._is_paused:
+                return
+            pos = self._seek_offset + (time.time() - self._play_start_time)
+            if pos < self._duration - 0.15:
+                return
+            self._seek_offset = self._xf_pending_offset
+            self._play_start_time = time.time()
+            if self._xf_pending_duration > 0:
+                self._duration = self._xf_pending_duration
+            self._current_file = self._xf_pending_path
+            if self._xf_b_source:
+                self._original_file = self._xf_b_source
+                self._xf_b_source = None
+            self._xf_armed = False
+            self._xf_active = False
+        self._finish_crossfade()
+
+    def _finish_crossfade(self) -> None:
+        """The mixed file ended — hand off to the GUI for queue/UI updates.
+
+        Keeps ``_is_playing`` true while handing off so the SDL mixer is
+        never torn down between the queued file ending and the next
+        ``play_file`` call (which would reopen the audio device).
+        """
+        with self._lock:
+            if self._xf_handoff_fired:
+                return
+            self._xf_handoff_fired = True
+            handoff = self._xf_handoff
+            b_offset = self._xf_pending_offset
+            index = self._xf_pending_index
+            self._xf_handoff = None
+            self._xf_active = False
+            self._xf_armed = False
+            self._xf_prepared = False
+            self._xf_pending_path = None
+            self._xf_pending_index = -1
+        if handoff:
+            try:
+                handoff(b_offset, index)
+            except Exception as e:
+                print(f"  ⚠️  Crossfade handoff failed: {e}")
+
     # ─────────────────────────────────────
     # Progress Monitor
     # ─────────────────────────────────────
@@ -667,12 +1426,21 @@ class AudioPlayer:
         self._progress_stop_event = stop_event
 
         def _monitor():
-            # pygame can briefly report False from get_busy() while a newly
-            # loaded file is being decoded. This matters most for short jingles.
             started_at = time.monotonic()
             while not stop_event.wait(0.25):
                 if not self._is_playing or self._is_paused:
                     continue
+                if self._engine == "wasapi":
+                    # C++ engine: pump chunk crossfades and end detection.
+                    self._pump_render()
+                    continue
+                # pygame can briefly report False from get_busy() while a
+                # newly loaded file is being decoded. This matters most for
+                # short jingles.
+                # Crossfade: start the overlap render near the track's end,
+                # then detect the seamless SDL switch into the queued mix.
+                self._check_crossfade_trigger()
+                self._check_crossfade_switch()
                 if not self.is_busy and time.monotonic() - started_at >= 0.5:
                     # Song finished
                     self._is_playing = False

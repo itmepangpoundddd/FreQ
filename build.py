@@ -80,9 +80,22 @@ def build(debug=False):
     if icon.exists():
         cmd.extend(["--icon", str(icon)])
 
+    # Stamp the canonical version (from installer.iss) into a small data
+    # file so the packaged app — which has no installer.iss beside it —
+    # shows the installer's version on the splash screen.
+    import re
+    iss = ROOT / "installer.iss"
+    if iss.is_file():
+        m = re.search(
+            r'^\s*#define\s+MyAppVersion\s+"([^"]+)"',
+            iss.read_text(encoding="utf-8"), re.MULTILINE,
+        )
+        if m:
+            (ROOT / "version.txt").write_text(m.group(1), encoding="utf-8")
+
     # Add data files
     datas = []
-    for f in ["logo.png", "logo.svg", "logo.ico", "splash.jpg"]:
+    for f in ["logo.png", "logo.svg", "logo.ico", "splash.jpg", "version.txt"]:
         p = ROOT / f
         if p.exists():
             datas.append(f"{p};.")
@@ -94,7 +107,7 @@ def build(debug=False):
     # available when these have not been compiled on the build machine.
     import sysconfig
     ext_suffix = sysconfig.get_config_var("EXT_SUFFIX")
-    for stem in ("native_audio_meter", "native_audio_output"):
+    for stem in ("native_audio_meter", "native_audio_output", "native_audio_render"):
         native = ROOT / f"{stem}{ext_suffix}"
         if native.exists():
             cmd.extend(["--add-binary", f"{native};."])

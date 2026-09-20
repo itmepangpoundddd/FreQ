@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Compile the optional C++ audio extensions for the active Python.
 
-Builds both the PCM meter (native_audio_meter) and the WASAPI output-device
-manager (native_audio_output) for Windows.
+Builds the PCM meter (native_audio_meter), the WASAPI output-device
+manager (native_audio_output) and the WASAPI render stream
+(native_audio_render) for Windows.
 """
 from __future__ import annotations
 
@@ -12,11 +13,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 VCVARS = Path(r"C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\Auxiliary\Build\vcvarsall.bat")
-SOURCES = ("native_audio_meter.cpp", "native_audio_output.cpp")
+SOURCES = ("native_audio_meter.cpp", "native_audio_output.cpp", "native_audio_render.cpp")
 
 def main() -> None:
     suffix = sysconfig.get_config_var("EXT_SUFFIX")
-    for stem in ("native_audio_meter", "native_audio_output"):
+    for stem in ("native_audio_meter", "native_audio_output", "native_audio_render"):
         output = ROOT / f"{stem}{suffix}"
         print(f"Building {output.name} ...")
         subprocess.run(

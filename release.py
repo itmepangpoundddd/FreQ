@@ -33,6 +33,37 @@ def version() -> str:
     return match.group(1)
 
 
+def set_version(new_version: str) -> str:
+    """Bump MyAppVersion in installer.iss to new_version.
+
+    installer.iss is the single source of truth for the version — build.py
+    (version.txt shown on the splash), create_wizard_images.py, the installer
+    filename and the git tag all derive from it, so this one edit updates
+    the whole release. Runs as the first step when invoked with --set-version.
+    """
+    if not re.fullmatch(r"\d+\.\d+\.\d+", new_version):
+        raise RuntimeError(
+            f"Invalid version {new_version!r} — use MAJOR.MINOR.PATCH (e.g. 2.6.4)"
+        )
+    current = version()
+    content = INSTALLER.read_text(encoding="utf-8")
+    content, replaced = re.subn(
+        r'(^(\s*)#define\s+MyAppVersion\s+")[^"]+(")',
+        rf"\g<1>{new_version}\g<3>",
+        content,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    if replaced != 1:
+        raise RuntimeError("MyAppVersion is missing from installer.iss")
+    INSTALLER.write_text(content, encoding="utf-8")
+    if new_version == current:
+        print(f"Version unchanged: v{current}")
+    else:
+        print(f"Version bumped: v{current} -> v{new_version}")
+    return new_version
+
+
 # Functions the shipped native_audio_meter extension must expose. A stale
 # .pyd from an older build would load fine but silently miss the newer
 # spectrum/waveform entry points, dropping the app back to the Python
@@ -47,6 +78,7 @@ NATIVE_METER_FUNCTIONS = (
     "loudness_reset",
     "samples_to_stereo_pcm",
     "find_silence_end",
+    "crossfade_mix",
 )
 
 NATIVE_OUTPUT_FUNCTIONS = (
@@ -56,12 +88,27 @@ NATIVE_OUTPUT_FUNCTIONS = (
     "set_master_volume",
 )
 
+NATIVE_RENDER_FUNCTIONS = (
+    "render_new",
+    "render_start",
+    "render_stop",
+    "render_write",
+    "render_buffered",
+    "render_emitted",
+    "render_set_volume",
+    "render_get_volume",
+    "render_clear",
+    "render_is_running",
+    "render_pause",
+)
+
 
 def verify_native_meter() -> None:
     """Import the freshly built native extensions and check entry points."""
     checks = (
         ("native_audio_meter", NATIVE_METER_FUNCTIONS),
         ("native_audio_output", NATIVE_OUTPUT_FUNCTIONS),
+        ("native_audio_render", NATIVE_RENDER_FUNCTIONS),
     )
     for module_name, functions in checks:
         check = (
@@ -96,10 +143,10 @@ def verify_bundle() -> None:
     if not dist.is_dir():
         raise RuntimeError(f"PyInstaller bundle not found: {dist}")
     problems: list[str] = []
-    for name in ("FreQ.exe", "splash.jpg"):
+    for name in ("FreQ.exe", "splash.jpg", "version.txt"):
         if not (dist / name).is_file():
             problems.append(name)
-    for stem in ("native_audio_meter", "native_audio_output"):
+    for stem in ("native_audio_meter", "native_audio_output", "native_audio_render"):
         if not list(dist.glob(f"{stem}*.pyd")):
             problems.append(f"{stem}<abi>.pyd")
     if problems:
@@ -193,11 +240,20 @@ def publish(app_version: str, artifact: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build and publish FreQ")
     parser.add_argument(
+        "--set-version",
+        metavar="X.Y.Z",
+        help="step 1: bump MyAppVersion in installer.iss before building "
+             "(e.g. --set-version 2.6.4)",
+    )
+    parser.add_argument(
         "--publish",
         action="store_true",
         help="commit, push, tag, and create the GitHub release after a successful build",
     )
     args = parser.parse_args()
+
+    if args.set_version:
+        set_version(args.set_version)
 
     app_version = version()
     print(f"FreQ release pipeline: v{app_version}")

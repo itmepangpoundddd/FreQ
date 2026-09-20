@@ -19,8 +19,11 @@ def installer_version() -> str:
 def create_wizard_images():
     logo = PROJECT_DIR / "logo.png"
     if not logo.exists():
-        print("[ERROR] logo.png not found!")
-        return
+        # Fail loudly: exiting 0 here would let the release pipeline package
+        # stale wizard BMPs from a previous build with no error shown.
+        raise RuntimeError(
+            f"logo.png not found in {PROJECT_DIR} — cannot generate wizard images."
+        )
 
     img = Image.open(logo).convert("RGBA")
 
