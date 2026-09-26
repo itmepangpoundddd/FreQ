@@ -1,0 +1,26 @@
+microphone capture failed (endpoint='{DEAD-BEEF}', index=None)
+capture endpoints on this machine: ['Microphone (2- USB2.0 MIC)', 'Microphone (Iriun Webcam #4)', 'Headset Microphone (AB17X USB Audio)', 'Microphone (Iriun Webcam #2)', 'Microphone (Realtek High Definition Audio)', 'Microphone (Iriun Webcam)', 'Microphone (Iriun Webcam #3)']
+problem webcam mic present: True
+
+— Engine level —
+  ✅ quad mic open/stop with per-mic gains — 4 mics mixed with distinct gains
+  ✅ quad start/stop storm ×40 — 40 quad start/stop cycles clean
+  ✅ capacity guard (max 4) — 5th mic refused at the engine
+  ✅ problem webcam mic ×4 slots — problem webcam mic in all 4 slots, no crash
+  ✅ extreme gain values safe — extreme gains never crash (clamped or refused)
+
+— Player level —
+pygame-ce 2.5.8 (SDL 2.32.10, Python 3.14.6)
+  ✅ quad segment timeline + single finish — ×4 mics, timeline 0.2→1.34s, finish ×1 (0.06s)
+  ✅ pygame music + live mic — pygame music + 2 live mics, timeline OK, finish x1
+  ✅ mic engine reuse/shutdown — engine reused across 10 sessions, retired on shutdown
+  ✅ join session keeps one timer — supersede: only the newest session's finish fired
+  ✅ player supersede capacity — supersede always frees capacity (4 -> 4)
+  ✅ problem mic records natively — recorded via native engine, portaudio untouched
+  ✅ bogus endpoint handled — bogus endpoint fails gracefully (no crash, no file)
+
+— Mixed storm —
+  ✅ song + quad mic + stop ×25 — 25 mixed cycles (song/mics/both/stop) zero failures
+
+==================================================
+Results: 13/13 passed
