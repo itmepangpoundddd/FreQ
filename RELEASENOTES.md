@@ -104,6 +104,30 @@ DOWN all of it plus the new queue/now-playing/dual features.
 - A file that cannot be opened still degrades to flat silence — never
   a crash
 
+### 🩺 Output row re-aligned (fixed, 1016 follow-up)
+- The far-right Now Playing output controls were stacking with mismatched
+  row widths before: the main output dropdown, the Dual mirror dropdown,
+  the two volume sliders, and the `48 / 50` position were scattering into
+  different widths and anchors
+- Rebuilt as **two uniform rows** that match each other, plus the `xx / xx`
+  position row on its own underneath:
+  - **Row 1**: main output (device dropdown + mirror toggle + mute +
+    0–100% slider)
+  - **Row 2**: Dual mirror (device dropdown + its own mute/volume row,
+    0–200%)
+  - **Bottom row**: `xx / xx` queue position, right-aligned
+- Both output rows now use the same widget widths so the dropdowns and
+  sliders sit in clean columns instead of drifting; the main mute button
+  sits on the main row and the mirror row carries the mirror's own volume
+  so it is obvious which loudness you are moving
+
+### 🩺 Now-playing playback-state edge case (fixed)
+- The now-playing slot was defaulting to a "playing" appearance when it
+  could not reliably tell pause from play, and the playback indicator
+  could override the marquee when the bar was paused
+- The slot now stops defaulting to playing in that ambiguous case, and the
+  play indicator no longer overrides the marquee while the bar is paused
+
 ### 🧪 Hardened test suite (new)
 - `test_ui_1016.py`: 44 checks across the five features above
   (structural for Tk glue, logic-level for the marquee recurrence and
@@ -267,8 +291,7 @@ readiness tools and a friendlier queue round it out. Plus every fix from
   handled inside the native thread (see the kill-storm soak below)
 
 ### 📡 Native broadcast stream — hardened by a kill-storm soak (new)
-- The new native sender (`native_stream.cpp`: loopback → ffmpeg →
-  Icecast/SHOUTcast in one C++ thread) survived a dedicated **50,000-op
+- The new native sender (`  native_stream.cpp`: loopback → ffmpeg → Icecast/SHOUTcast in one C++ thread) survived a dedicated **50,000-op
   soak** built to kill it: **668 forced disconnects** (clean shutdowns,
   RST resets, 144 full server outages), 47 fresh sessions — **668/668
   recoveries, zero failures, worst recovery 2.1 s**
@@ -285,6 +308,7 @@ readiness tools and a friendlier queue round it out. Plus every fix from
   every future build can be tortured the same way
 
 ### 🔄 Seamless mid-stream sample-rate/format changes (new)
+
 - Switching a device's sample rate / bit depth / format mid-broadcast
   (Sound control panel, driver resets, "audio enhancements" toggles) no
   longer kills the engine — playback used to stutter, restart or jump

@@ -9,14 +9,14 @@
 ; MyAppVersion is the bare sortable release id (tags, installer filename):
 ;   Ultimate era: yyyy.mmdd.round = year, Build month+day, update round
 ;   Legacy era:   MAJOR.MINOR.PATCH[-SUFFIX]
-#define MyAppVersion "2026.0926.2"
+#define MyAppVersion "2026.1016.1"
 ; Windows file metadata (VersionInfoVersion) must be strictly numeric —
 ; release.py --set-version mirrors MyAppVersion into this define
 ; automatically (Ultimate 2026.0924.1 -> 2026.9.241).
-#define MyAppVersionNumeric "2026.9.2602"
+#define MyAppVersionNumeric "2026.10.1601"
 ; Human-facing branding shown in the installer wizard, Add/Remove Programs
 ; and the splash — mirrored by release.py --set-version automatically.
-#define MyAppVersionDisplay "Ultimate 2026 (Build 0926.2)"
+#define MyAppVersionDisplay "Ultimate 2026 (Build 1016.1)"
 #define MyAppPublisher "SocieticsTv Broadcasting & Network"
 #define MyAppURL "https://github.com/SocieticsTv/freq"
 #define MyAppExeName "FreQ.exe"
