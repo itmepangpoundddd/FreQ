@@ -2639,12 +2639,16 @@ class RadioApp(ctk.CTk):
         right_frame = ctk.CTkFrame(inner, fg_color="transparent")
         right_frame.pack(side="right")
 
-        # Device selector
-        dev_frame = ctk.CTkFrame(right_frame, fg_color="transparent")
-        dev_frame.pack(anchor="e", pady=(0, 2))
+        # Two UNIFORM output rows (device dropdown + its own loudness):
+        # row 1 = main output, row 2 = Dual Output mirror. Same widget
+        # widths in both rows so the columns line up instead of the old
+        # ragged pile. The song position (xx / xx) sits alone underneath,
+        # right-aligned.
 
-        ctk.CTkLabel(dev_frame, text="", font=ctk.CTkFont(size=11),
-                      text_color=COLORS["text3"]).pack(side="left", padx=(0, 4))
+        # ── Row 1: main output ──
+        dev_frame = ctk.CTkFrame(right_frame, fg_color="transparent")
+        dev_frame.pack(anchor="e", pady=(0, 3))
+
         dev_icon = self._icon("headphones", 14, COLORS["text3"])
         if dev_icon:
             ctk.CTkLabel(dev_frame, image=dev_icon, text="").pack(side="left", padx=(0, 4))
@@ -2670,21 +2674,54 @@ class RadioApp(ctk.CTk):
                        command=self._refresh_device_list).pack(side="left", padx=(4, 0))
         ToolTip(dev_frame.winfo_children()[-1], text="Refresh Devices", description="Re-scan audio output devices")
 
-        # ── Dual Output (mirror mix to a second speaker) ──
-        # Sits directly UNDER the main output dropdown. Default OFF =
-        # identical to the legacy single-output path, byte for byte.
+        self._muted = False
+        self._saved_vol = 80.0
+        self.btn_mute = ctk.CTkButton(
+            dev_frame, text="🔊", width=28, height=26,
+            fg_color="transparent", hover_color=COLORS["bg_hover"],
+            font=ctk.CTkFont(size=14),
+            command=self._toggle_mute,
+        )
+        self.btn_mute.pack(side="left", padx=(6, 2))
+        ToolTip(self.btn_mute, text="Mute / Unmute", description="Toggle sound on/off")
+
+        self.volume_var = ctk.DoubleVar(value=80.0)
+        self.volume_slider = ctk.CTkSlider(
+            dev_frame, from_=0, to=100,
+            variable=self.volume_var,
+            width=120, height=14,
+            fg_color=COLORS["border"],
+            progress_color=COLORS["accent"],
+            button_color=COLORS["accent"],
+            button_hover_color=COLORS["accent_hover"],
+            command=self._on_volume_change,
+        )
+        self.volume_slider.set(80.0)
+        self.volume_slider.pack(side="left")
+
+        self.volume_label = ctk.CTkLabel(dev_frame, text="80%",
+                                          font=ctk.CTkFont(size=10),
+                                          text_color=COLORS["text3"], width=36)
+        self.volume_label.pack(side="left", padx=(4, 0))
+
+        # ── Dual Output (mirror mix to a second speaker) — row 2, same shape ──
+        # Default OFF = identical to the legacy single-output path.
         self._dual_output = DualOutputMirror()
-        # Alt aliases kept for the original smoke-suite contract,
-        # so existing tests keep testing the same behaviour.
+        # Aliases kept for the original smoke-suite contract.
         self.dual_output = self._dual_output
-        dual_frame = ctk.CTkFrame(right_frame, fg_color="transparent")
-        dual_frame.pack(anchor="e", pady=(0, 2))
+        dual_frame = ctk.CTkFrame(right_frame, fg_color="transparent",
+                                  width=dev_frame.winfo_reqwidth())
+        dual_frame.pack(anchor="e", pady=(0, 3))
+
+        spacer = ctk.CTkLabel(dual_frame, text="", width=18,
+                              font=ctk.CTkFont(size=11))
+        spacer.pack(side="left", padx=(0, 4))
 
         self.dual_device_var = ctk.StringVar(value="Off")
         self.dual_var = self.dual_device_var  # smoke-suite alias
         self.dual_menu = ctk.CTkOptionMenu(
             dual_frame, variable=self.dual_device_var,
-            values=["Dual Off"],
+            values=["Off"],
             width=180, height=26,
             fg_color=COLORS["bg_hover"],
             button_color=COLORS["border"],
@@ -2698,69 +2735,39 @@ class RadioApp(ctk.CTk):
         ToolTip(self.dual_menu, text="Dual Output",
                 description="Mirror the whole broadcast mix to a second speaker")
 
+        ctk.CTkLabel(dual_frame, text="🔄", width=26, height=26,
+                     font=ctk.CTkFont(size=12)).pack(side="left", padx=(4, 0))
+
+        self.dual_mute = ctk.CTkLabel(dual_frame, text="🔊",
+                                      font=ctk.CTkFont(size=14), width=28)
+        self.dual_mute.pack(side="left", padx=(6, 2))
+
         self.dual_vol_var = ctk.DoubleVar(value=100.0)
         self.dual_vol_slider = ctk.CTkSlider(
             dual_frame, from_=0, to=200,
             variable=self.dual_vol_var,
-            width=90, height=14,
+            width=120, height=14,
             fg_color=COLORS["border"],
             progress_color=COLORS["accent"],
             button_color=COLORS["accent"],
             command=self._on_dual_volume,
         )
-        self.dual_vol_slider.pack(side="left", padx=(6, 0))
-        self.dual_output = self._dual_output  # keep alias after rebuilds
-        self.dual_output = self._dual_output  # keep alias after rebuilds
+        self.dual_vol_slider.pack(side="left")
+
         self.dual_vol_label = ctk.CTkLabel(dual_frame, text="100%",
                                            font=ctk.CTkFont(size=10),
                                            text_color=COLORS["text3"], width=36)
-        self.dual_vol_label.pack(side="left", padx=(2, 0))
+        self.dual_vol_label.pack(side="left", padx=(4, 0))
 
         # Populate dual device values (after refresh_device_list fills the list)
         self.dual_device_menu = self.dual_menu  # smoke-suite alias
         self._refresh_dual_device_list()
 
-        # Volume slider
-        vol_frame = ctk.CTkFrame(right_frame, fg_color="transparent")
-        vol_frame.pack(anchor="e", pady=(2, 2))
-
-        self._muted = False
-        self._saved_vol = 80.0
-
-        self.btn_mute = ctk.CTkButton(
-            vol_frame, text="🔊", width=28, height=26,
-            fg_color="transparent", hover_color=COLORS["bg_hover"],
-            font=ctk.CTkFont(size=14),
-            command=self._toggle_mute,
-        )
-        self.btn_mute.pack(side="left", padx=(0, 2))
-
-        ToolTip(self.btn_mute, text="Mute / Unmute", description="Toggle sound on/off")
-
-        self.volume_var = ctk.DoubleVar(value=80.0)
-        self.volume_slider = ctk.CTkSlider(
-            vol_frame, from_=0, to=100,
-            variable=self.volume_var,
-            width=120, height=14,
-            fg_color=COLORS["border"],
-            progress_color=COLORS["accent"],
-            button_color=COLORS["accent"],
-            button_hover_color=COLORS["accent_hover"],
-            command=self._on_volume_change,
-        )
-        self.volume_slider.set(80.0)
-        self.volume_slider.pack(side="left")
-
-        self.volume_label = ctk.CTkLabel(vol_frame, text="80%",
-                                          font=ctk.CTkFont(size=10),
-                                          text_color=COLORS["text3"], width=32)
-        self.volume_label.pack(side="left", padx=(4, 0))
-
-        # Position label
+        # Position label — bottom-right, alone on its own row
         self.np_position = ctk.CTkLabel(right_frame, text="-- / --",
                                          font=ctk.CTkFont(size=12),
                                          text_color=COLORS["text3"])
-        self.np_position.pack(anchor="e", pady=(2, 0))
+        self.np_position.pack(anchor="e", pady=(6, 0))
 
         # Waveform display — above progress bar
         self.waveform = WaveformWidget(inner, width=400, height=40,
