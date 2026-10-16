@@ -48,7 +48,7 @@ from radio_manager import (
 )
 from audio import AudioDeviceManager
 from audio_meter import meter as audio_meter
-from player import AudioPlayer
+from player import AudioPlayer, _ffmpeg_exe as _find_ffmpeg_exe
 import mic_recorder
 from mic_recorder import record_wav, SOUNDDEVICE_AVAILABLE
 from cache import cache as song_cache
@@ -58,6 +58,7 @@ from streaming import streamer, StreamProtocol, StreamState, FFMPEG_AVAILABLE, W
 from keys_tab import build_keys_tab, DEFAULT_KEYS as _DEFAULT_KEYS
 from log_handler import setup_logging, memory_handler
 from silence_sentinel import SilenceSentinel
+from dual_output import DualOutputMirror
 from plugin_system import PluginManager, PluginContext
 
 # U4 dry-run Silence Sentinel.ultimate_toggle: env var "1"/"true" enables
@@ -671,6 +672,133 @@ class VumeterWidget(tk.Canvas):
 # Waveform Widget
 # ═══════════════════════════════════════════════════════════════
 
+class UiFreezeWatchdog:
+    """UI-thread freeze watchdog + supervisor heartbeat [sup-0926].
+
+    An in-process watchdog alone cannot rescue a deadlocked UI — that is
+    the supervisor's job (freq_supervisor.py runs gui.py as a child).
+    What the watchdog CAN do:
+
+      * the UI thread stamps a wall-clock value on every ``after`` tick
+        (small, safe, never misses while the loop pumps);
+      * a private WATCHER thread compares that stamp with the wall clock:
+        if the UI thread has not ticked for ``threshold`` seconds it logs
+        a WARNING with the UI thread's REAL stack (so the blocking code
+        is named), and a "resumed" line after the loop comes back;
+      * while the UI thread pumps, the WATCHER writes the supervisor
+        heartbeat file every ``heartbeat_ms`` (when FREQ_SUPERVISED is
+        set) — the supervisor kills + restarts the whole tree when the
+        file stalls. All Tk calls stay on the UI thread.
+    """
+
+    def __init__(self, root=None, threshold: float = 0.25,
+                 heartbeat_ms: int = 50, watch_interval: float = 0.02,
+                 logger_name: str = "freq.gui") -> None:
+        self._root = root
+        self._threshold = float(threshold)
+        self._heartbeat_ms = max(10, int(heartbeat_ms))
+        self._watch_interval = float(watch_interval)
+        self._log = logging.getLogger(logger_name)
+        self._thread: Optional[threading.Thread] = None
+        self._stop = threading.Event()
+        self._hb_path = os.environ.get("FREQ_SUPERVISOR_HEARTBEAT", "")
+        self._supervised = os.environ.get("FREQ_SUPERVISED") == "1"
+        # UI-thread state: the after-loop stamps ``ui_stamp`` with
+        # time.monotonic(); the watcher only READS it (GIL-safe).
+        self._ui_stamp = time.monotonic()
+        self._watcher_started = False
+        self._ui_loop_running = False
+        self._thread = None
+        self._stalled_reported = False
+        self._last_hb_mono = 0.0
+
+    def start(self) -> None:
+        if self._watcher_started:
+            return
+        self._watcher_started = True
+        self._ui_loop_running = True
+        self._stop.clear()
+        self._thread = threading.Thread(
+            target=self._watch, name="freq-ui-watchdog", daemon=True)
+        self._thread.start()
+        if self._root is not None:
+            # Kick the UI-side ticker; after(0) so it runs immediately.
+            try:
+                self._root.after(0, self._ui_ticker)
+            except Exception:
+                self._ui_loop_running = False
+
+    def stop(self) -> None:
+        self._ui_loop_running = False
+        self._stop.set()
+        thread = self._thread
+        if thread is not None and thread is not threading.current_thread():
+            thread.join(timeout=2.0)
+        # The smoke contract reads ``_thread`` after stop() and joins it —
+        # hand back the (already exited) thread object, not None.
+        # Clean-stop marker: the supervisor sees "0" in the heartbeat
+        # and exits instead of treating the close as a crash.
+        if self._supervised and self._hb_path:
+            self._write_hb_marker("0")
+
+    # ── UI thread side (after-loop) ──
+    def _ui_ticker(self) -> None:
+        if not self._ui_loop_running:
+            return
+        self._ui_stamp = time.monotonic()
+        try:
+            if self._root is not None:
+                self._root.after(self._heartbeat_ms, self._ui_ticker)
+        except Exception:
+            self._ui_loop_running = False
+
+    # ── watcher thread side (no Tk calls) ──
+    def _watch(self) -> None:
+        main = threading.main_thread()
+        main_ident = main.native_id if hasattr(main, "native_id") else main.ident
+        self._log.debug("[watchdog] watcher armed (threshold=%.2fs)",
+                        self._threshold)
+        while not self._stop.wait(self._watch_interval):
+            now_mono = time.monotonic()
+            stalled = (now_mono - self._ui_stamp) > self._threshold
+            if stalled and not self._stalled_reported:
+                self._stalled_reported = True
+                stack = self._main_thread_stack(main_ident)
+                self._log.warning(
+                    "[watchdog] UI thread stalled > %.2fs — stack of the "
+                    "blocked main thread:\n%s", self._threshold, stack)
+            elif not stalled and self._stalled_reported:
+                self._stalled_reported = False
+                self._log.warning("[watchdog] UI thread resumed after stall "
+                                  "(gap %.2fs)", now_mono - self._ui_stamp)
+            if self._supervised and self._hb_path and not stalled:
+                if (now_mono - getattr(self, "_last_hb_mono", 0.0)) >= (
+                        self._heartbeat_ms / 1000.0):
+                    self._last_hb_mono = now_mono
+                    self._write_hb_marker(str(time.time()))
+
+    @staticmethod
+    def _main_thread_stack(ident: Optional[int]) -> str:
+        import traceback
+        try:
+            for tid, frame in sys._current_frames().items():
+                if tid == ident or (hasattr(threading.main_thread(), "native_id")
+                                    and tid == threading.main_thread().native_id):
+                    return "".join(traceback.format_stack(frame)[-12:]).rstrip()
+        except Exception:
+            pass
+        return "(stack unavailable)"
+
+    def _write_hb_marker(self, content: str) -> None:
+        try:
+            tmp = self._hb_path + ".tmp"
+            with open(tmp, "w", encoding="ascii") as f:
+                f.write(content)
+            os.replace(tmp, self._hb_path)
+        except Exception:
+            pass
+
+
 class WaveformWidget(tk.Canvas):
     """Audio waveform display with playback position marker."""
 
@@ -759,12 +887,19 @@ class WaveformWidget(tk.Canvas):
 
     @staticmethod
     def generate_from_file(filepath: str, num_samples: int = 200) -> list[float]:
-        """Generate waveform data from an audio file using ffmpeg."""
+        """Generate waveform data from an audio file using ffmpeg.
+
+        Uses the same ffmpeg resolution as the rest of the app
+        (``player._ffmpeg_exe``): the bundled copy in deps/ffmpeg-essentials
+        or ``{app}\\ffmpeg`` survives an install on machines with no
+        ffmpeg on PATH — a bare ``"ffmpeg"`` command here used to fail
+        there and the widget silently fell back to a flat line.
+        """
         import subprocess
         import struct
         try:
             cmd = [
-                "ffmpeg", "-i", filepath,
+                _find_ffmpeg_exe(), "-i", filepath,
                 "-ac", "1", "-ar", "11025", "-f", "s16le",
                 "-t", "120",  # max 2 minutes
                 "-y", "pipe:1"
@@ -1206,6 +1341,12 @@ class RadioApp(ctk.CTk):
         self.bind("<Left>", self._no_typing(lambda e: self._seek_backward()))
         self.bind("<Up>", self._no_typing(lambda e: self._volume_up()))
         self.bind("<Down>", self._no_typing(lambda e: self._volume_down()))
+        # Shift + Up/Down in the queue: extend the selection range
+        # (Down → to the end of the list, Up → to the first entry).
+        # Binds must sit BEFORE the plain volume bindings so shift is
+        # ours to consume..
+        self.bind("<Shift-Up>", lambda e: self._apply_queue_shift_arrow(-1))
+        self.bind("<Shift-Down>", lambda e: self._apply_queue_shift_arrow(1))
         self.bind("<n>", self._no_typing(lambda e: self._next_track()))
         self.bind("<p>", self._no_typing(lambda e: self._prev_track()))
         self.bind("<m>", self._no_typing(lambda e: self._toggle_mute()))
@@ -1932,6 +2073,11 @@ class RadioApp(ctk.CTk):
                 description="EQ, auto-gain and mic filters for the selected item")
 
         self._queue_selected: Optional[int] = None
+        # Multi-select (Shift+click / Shift+arrow): the full selected set,
+        # the anchor the range grows from, and live row widgets for repaints
+        self._queue_selection: set = set()
+        self._queue_shift_anchor: Optional[int] = None
+        self._queue_rows: dict = {}
 
     # ── Sidebar (right) ──
     def _build_sidebar(self, parent) -> None:
@@ -2345,10 +2491,13 @@ class RadioApp(ctk.CTk):
         info = ctk.CTkFrame(inner, fg_color="transparent")
         info.pack(side="left", fill="both", expand=True)
 
+        # Marquee for long titles: title past the widget edge just clips —
+        # 460 px per paint tick. Pauses while paused.
         self.np_title = ctk.CTkLabel(info, text="No song playing",
                                       font=ctk.CTkFont(size=16, weight="bold"),
                                       text_color=COLORS["text"], anchor="w")
         self.np_title.pack(fill="x")
+        self._start_title_marquee(self.np_title)
 
         self.np_artist = ctk.CTkLabel(info, text="Select a song from queue to start",
                                        font=ctk.CTkFont(size=11),
@@ -2521,6 +2670,56 @@ class RadioApp(ctk.CTk):
                        command=self._refresh_device_list).pack(side="left", padx=(4, 0))
         ToolTip(dev_frame.winfo_children()[-1], text="Refresh Devices", description="Re-scan audio output devices")
 
+        # ── Dual Output (mirror mix to a second speaker) ──
+        # Sits directly UNDER the main output dropdown. Default OFF =
+        # identical to the legacy single-output path, byte for byte.
+        self._dual_output = DualOutputMirror()
+        # Alt aliases kept for the original smoke-suite contract,
+        # so existing tests keep testing the same behaviour.
+        self.dual_output = self._dual_output
+        dual_frame = ctk.CTkFrame(right_frame, fg_color="transparent")
+        dual_frame.pack(anchor="e", pady=(0, 2))
+
+        self.dual_device_var = ctk.StringVar(value="Off")
+        self.dual_var = self.dual_device_var  # smoke-suite alias
+        self.dual_menu = ctk.CTkOptionMenu(
+            dual_frame, variable=self.dual_device_var,
+            values=["Dual Off"],
+            width=180, height=26,
+            fg_color=COLORS["bg_hover"],
+            button_color=COLORS["border"],
+            button_hover_color=COLORS["text3"],
+            dropdown_fg_color=COLORS["bg_card"],
+            dropdown_hover_color=COLORS["bg_hover"],
+            font=ctk.CTkFont(size=10),
+            command=self._on_dual_selected,
+        )
+        self.dual_menu.pack(side="left")
+        ToolTip(self.dual_menu, text="Dual Output",
+                description="Mirror the whole broadcast mix to a second speaker")
+
+        self.dual_vol_var = ctk.DoubleVar(value=100.0)
+        self.dual_vol_slider = ctk.CTkSlider(
+            dual_frame, from_=0, to=200,
+            variable=self.dual_vol_var,
+            width=90, height=14,
+            fg_color=COLORS["border"],
+            progress_color=COLORS["accent"],
+            button_color=COLORS["accent"],
+            command=self._on_dual_volume,
+        )
+        self.dual_vol_slider.pack(side="left", padx=(6, 0))
+        self.dual_output = self._dual_output  # keep alias after rebuilds
+        self.dual_output = self._dual_output  # keep alias after rebuilds
+        self.dual_vol_label = ctk.CTkLabel(dual_frame, text="100%",
+                                           font=ctk.CTkFont(size=10),
+                                           text_color=COLORS["text3"], width=36)
+        self.dual_vol_label.pack(side="left", padx=(2, 0))
+
+        # Populate dual device values (after refresh_device_list fills the list)
+        self.dual_device_menu = self.dual_menu  # smoke-suite alias
+        self._refresh_dual_device_list()
+
         # Volume slider
         vol_frame = ctk.CTkFrame(right_frame, fg_color="transparent")
         vol_frame.pack(anchor="e", pady=(2, 2))
@@ -2600,6 +2799,7 @@ class RadioApp(ctk.CTk):
     def _refresh_queue(self) -> None:
         """Refresh queue with batched rendering for large playlists."""
         # Clear old items
+        self._queue_rows = {}
         for w in self.queue_frame.winfo_children():
             w.destroy()
 
@@ -2683,9 +2883,9 @@ class RadioApp(ctk.CTk):
             fg_color=item_bg,
             corner_radius=8,
         )
-        if item_border:
-            item.configure(border_width=item_border, border_color=item_border_color)
         item.pack(fill="x", pady=1, padx=2)
+        # Registry for live selection repaints (Shift+arrow)
+        self._queue_rows[i] = item
 
         inner = ctk.CTkFrame(item, fg_color="transparent")
         inner.pack(fill="x", padx=8, pady=6)
@@ -2756,7 +2956,8 @@ class RadioApp(ctk.CTk):
         for w in targets:
             if w is None:
                 continue
-            w.bind("<Button-1>", lambda e, x=idx: self._on_queue_click(x))
+            w.bind("<Button-1>", lambda e, x=idx: self._on_queue_click(x, e))
+            w.bind("<Button-3>", lambda e, x=idx: self._on_queue_right_click(x, e))
             # Double-click to play. The single-click handler defers the
             # (row-destroying) re-render, so the second click still lands
             # on the SAME widget and Tk can recognise the double-click —
@@ -2957,10 +3158,13 @@ class RadioApp(ctk.CTk):
                       text_color="#000000",
                       command=apply_changes).pack(side="right", padx=(0, 8))
 
-    def _on_queue_click(self, index: int) -> None:
-        if self._queue_selected == index:
+    def _on_queue_click(self, index: int, event=None) -> None:
+        if event is not None and (event.state & 0x0001):  # Shift held
+            self._queue_shift_click(index)
             return
         self._queue_selected = index
+        self._queue_selection = {index}
+        self._queue_shift_anchor = None
         self._update_queue_filter_btn()
         # Defer the row-destroying re-render past the double-click window:
         # rebuilding instantly used to eat the second click, so
@@ -2977,6 +3181,118 @@ class RadioApp(ctk.CTk):
         self._queue_sel_after = None
         self._refresh_queue()
 
+    def _queue_shift_click(self, index: int) -> None:
+        """Shift+click: extend the selection from the anchor to this row."""
+        n = len(self.rq.queue)
+        if n <= 0:
+            return
+        anchor = (self._queue_shift_anchor
+                  if self._queue_shift_anchor is not None
+                  else (self._queue_selected
+                        if self._queue_selected is not None else 0))
+        anchor = max(0, min(n - 1, anchor))
+        lo, hi = min(anchor, index), max(anchor, index)
+        self._queue_selection = set(range(lo, hi + 1))
+        self._queue_selected = index
+        self._queue_shift_anchor = anchor
+        self._update_queue_selection_paint()
+
+    def _on_queue_right_click(self, index: int, event=None) -> None:
+        """Context menu: play, rename, remove."""
+        menu = tk.Menu(self, tearoff=0, bg=COLORS["bg_card"], fg=COLORS["text"],
+                       activebackground=COLORS["accent"], activeforeground="white")
+        menu.add_command(label="▶  Play",
+                         command=lambda: self._on_queue_double_click(index))
+        menu.add_command(label="✏️  Rename…",
+                         command=lambda: self._rename_queue_song(index))
+        menu.add_separator()
+        menu.add_command(label="🗑  Remove",
+                         command=self._remove_selected)
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+
+    def _rename_queue_song(self, index: int) -> None:
+        """Rename a queue song's title/artist via a small dialog.
+
+        Edits go into the queue Song object AND the matching library
+        entry (same id) so the library view stays in sync; the queue
+        autosave persists both.
+        """
+        if not (0 <= index < len(self.rq.queue)):
+            return
+        song = self.rq.queue[index]
+        dlg = ctk.CTkToplevel(self)
+        dlg.title("✏️ Rename")
+        dlg.geometry("360x200")
+        dlg.configure(fg_color=COLORS["bg"])
+        dlg.transient(self)
+        dlg.grab_set()
+        dlg.resizable(False, False)
+
+        ctk.CTkLabel(dlg, text=f"Edit song #{index + 1}",
+                     font=ctk.CTkFont(size=14, weight="bold"),
+                     text_color=COLORS["text"]).pack(pady=(14, 6))
+
+        ctk.CTkLabel(dlg, text="Title", text_color=COLORS["text2"],
+                     font=ctk.CTkFont(size=11)).pack(anchor="w", padx=24)
+        title_var = ctk.StringVar(value=song.title or "")
+        title_entry = ctk.CTkEntry(dlg, textvariable=title_var, width=300)
+        title_entry.pack(padx=24, pady=(2, 8))
+        title_entry.focus_set()
+        title_entry.select_range(0, "end")
+        self._bind_clipboard_shortcuts(title_entry)
+
+        ctk.CTkLabel(dlg, text="Artist", text_color=COLORS["text2"],
+                     font=ctk.CTkFont(size=11)).pack(anchor="w", padx=24)
+        artist_var = ctk.StringVar(value=song.artist or "")
+        artist_entry = ctk.CTkEntry(dlg, textvariable=artist_var, width=300)
+        artist_entry.pack(padx=24, pady=(2, 12))
+        self._bind_clipboard_shortcuts(artist_entry)
+
+        def _save_and_close() -> None:
+            new_title = title_var.get().strip()
+            new_artist = artist_var.get().strip()
+            if new_title:
+                song.title = new_title
+                song.artist = new_artist
+                # Library entries sharing this id keep the rename on reload.
+                for lib_song in self.rq.library:
+                    if lib_song.id == song.id:
+                        lib_song.title = new_title
+                        lib_song.artist = new_artist
+                self._queue_selection_paint_one()
+                self._refresh_library()
+                try:
+                    # Persist the rename immediately, quietly (the shared
+                    # _save() pops a message box — not wanted per-rename).
+                    self.rq.save_to_file(settings=self._collect_settings())
+                except Exception:
+                    pass
+                self._show_toast(f"✏️ Renamed → {new_title[:40]}")
+            dlg.destroy()
+
+        btns = ctk.CTkFrame(dlg, fg_color="transparent")
+        btns.pack(pady=(0, 14))
+        ctk.CTkButton(btns, text="Save", width=100,
+                      fg_color=COLORS["accent"],
+                      command=_save_and_close).pack(side="left", padx=6)
+        ctk.CTkButton(btns, text="Cancel", width=100,
+                      fg_color="transparent", hover_color=COLORS["bg_hover"],
+                      command=dlg.destroy).pack(side="left", padx=6)
+        dlg.bind("<Return>", lambda e: _save_and_close())
+        dlg.bind("<Escape>", lambda e: dlg.destroy())
+
+    def _queue_selection_paint_one(self) -> None:
+        """Repaint a single (possibly renamed) queue row cheaply."""
+        try:
+            if getattr(self, "_queue_sel_after", None):
+                return  # a full re-render is already scheduled
+            self._refresh_queue()
+        except Exception:
+            pass
+
     def _on_queue_double_click(self, index: int) -> None:
         token = self.__dict__.get("_queue_sel_after")
         if token:
@@ -2990,6 +3306,77 @@ class RadioApp(ctk.CTk):
     # ═══════════════════════════════════════
     # Playback
     # ═══════════════════════════════════════
+    def _start_title_marquee(self, label) -> None:
+        """Long now-playing titles slide left↔right inside the bar edge.
+
+        A title wider than the widget clips at the edge line, so past
+        that the displayed window slides back and forth (200 ms tick)
+        until the whole title has been readable. Short titles never
+        animate, the slide holds while playback is paused, and external
+        text updates (now-playing refresh, anthem override) reset the
+        slide automatically — the tick detects any text we did not write
+        by comparing against the last displayed value.
+        """
+        self._marquee_last_displayed = ""
+        self._marquee_full = ""
+        self._marquee_phase = 0
+        self._marquee_dir = 1
+        self._marquee_tkfont = None
+
+        def _tick():
+            try:
+                if not label.winfo_exists():
+                    return
+            except Exception:
+                return
+            try:
+                displayed = str(label.cget("text") or "")
+                if displayed != self._marquee_last_displayed:
+                    # External update — treat as the new full title.
+                    self._marquee_full = displayed
+                    self._marquee_phase = 0
+                    self._marquee_dir = 1
+                    self._marquee_last_displayed = displayed
+                width = max(10, label.winfo_width())
+                if self._marquee_tkfont is None:
+                    from tkinter import font as tkfont
+                    cf = label.cget("font")
+                    try:
+                        fam = cf.cget("family")
+                        size = cf.cget("size")
+                        weight = cf.cget("weight")
+                    except Exception:
+                        fam, size, weight = "Segoe UI", 16, "bold"
+                    self._marquee_tkfont = tkfont.Font(
+                        family=fam, size=size, weight=weight)
+                avg = max(1, self._marquee_tkfont.measure("x"))
+                fit = max(1, int(width // avg))
+                full = self._marquee_full
+                overflow = len(full) - fit
+                if overflow <= 0 or not getattr(self, "_playing", False):
+                    self._marquee_phase = 0
+                    self._marquee_dir = 1
+                else:
+                    gap = "      "
+                    base = full + gap
+                    ext = base + base
+                    window = ext[self._marquee_phase:self._marquee_phase + fit]
+                    if window != displayed:
+                        label.configure(text=window)
+                        self._marquee_last_displayed = window
+                    self._marquee_phase += self._marquee_dir
+                    if self._marquee_phase <= 0:
+                        self._marquee_phase = 0
+                        self._marquee_dir = 1
+                    elif self._marquee_phase >= len(base):
+                        self._marquee_phase = len(base)
+                        self._marquee_dir = -1
+            except Exception:
+                pass
+            self.after(200, _tick)
+
+        self.after(200, _tick)
+
     def _update_now_playing(self) -> None:
         idx = self.rq.current_index
         if idx >= 0 and idx < len(self.rq.queue):
@@ -3462,6 +3849,7 @@ class RadioApp(ctk.CTk):
                 names.append(label)
 
         self.device_menu.configure(values=names)
+        self._refresh_dual_device_list(names)
 
         # Restore selection — when the WASAPI engine is live, its route state
         # (FreQ-only endpoint, or "Default" after device loss) is the truth;
@@ -3553,7 +3941,75 @@ class RadioApp(ctk.CTk):
                     self._open_sound_settings()
                 break
 
-    def _open_sound_settings(self) -> None:
+    def _refresh_dual_device_list(self, names=None) -> None:
+        """Fill the Dual Output dropdown (main device list + "Dual Off")."""
+        menu = getattr(self, "dual_menu", None)
+        if menu is None:
+            return
+        if names is None:
+            # Derive the same labels _refresh_device_list builds.
+            names = list(self.device_menu.cget("values") or ["Default"])
+        values = ["Off"] + list(names)
+        try:
+            menu.configure(values=values)
+        except Exception:
+            pass
+        if self.dual_var.get() not in values:
+            self.dual_var.set("Off")
+
+    def _shutdown_dual_output(self) -> None:
+        """Release the Dual Output mirror (smoke-suite/close contract)."""
+        try:
+            self._dual_output.stop()
+        except Exception:
+            pass
+
+    def _on_dual_device_selected(self, choice: str) -> None:
+        """Smoke-suite alias for the dropdown command."""
+        return self._on_dual_selected(choice)
+
+    def _refresh_dual_list(self) -> None:
+        """Smoke-suite alias for the device list refresh."""
+        return self._refresh_dual_device_list()
+
+    def _on_dual_selected(self, choice: str) -> None:
+        """Start/stop the Dual Output mirror according to the dropdown."""
+        endpoint = self._dual_endpoint_for(choice)
+        if endpoint is None:
+            self._dual_output.stop()
+            self.dual_var.set("Off")
+            return
+        vol = self.dual_vol_var.get() / 100.0
+        if self._dual_output.running and self._dual_output.endpoint != endpoint:
+            ok = self._dual_output.change_endpoint(endpoint)
+        else:
+            ok = self._dual_output.start(endpoint, vol)
+        if ok:
+            self.dual_var.set(choice)
+            self._show_toast(f"🙌 Dual Output → {choice[:32]} (mirror)")
+        else:
+            self.dual_var.set("Off")
+            self._show_toast(f"⚠️ Dual Output failed: {self._dual_output.stats().get('error', 'unknown')[:60]}")
+
+    def _dual_endpoint_for(self, label: str) -> Optional[str]:
+        """Map the dual dropdown label to a WASAPI endpoint id."""
+        if not label or label == "Off":
+            return None
+        for d in self.audio_mgr.get_output_devices():
+            display = d.name if len(d.name) <= 40 else d.name[:37] + "..."
+            if display == label:
+                return getattr(d, "endpoint_id", None)
+        # Fallback: prefix match (label might be the truncated form).
+        for d in self.audio_mgr.get_output_devices():
+            if d.name and (d.name in label or label in d.name):
+                return getattr(d, "endpoint_id", None)
+        return None
+
+    def _on_dual_volume(self, value: float) -> None:
+        """Per-output loudness for the mirrored speaker (0–200%), live."""
+        pct = int(value)
+        self.dual_vol_label.configure(text=f"{pct}%")
+        self._dual_output.volume = value / 100.0
         """Open the Windows sound settings page (manual output picker)."""
         try:
             import os
@@ -3927,12 +4383,89 @@ class RadioApp(ctk.CTk):
     # ═══════════════════════════════════════
     # Queue Management
     # ═══════════════════════════════════════
+    def _apply_queue_shift_arrow(self, direction: int) -> str:
+        """Shift + Up/Down inside the queue: extend the selection range
+
+        The anchor is the row the user last Shift+clicked (or single-clicked).
+        Shift+Down extends DOWN to the end of the list, Shift+Up extends UP
+        to the first entry — the range keeps growing while the key repeats
+        and the anchor never moves.
+        """
+        n = len(self.rq.queue)
+        if n <= 0:
+            return "break"
+        anchor = (self._queue_shift_anchor
+                  if self._queue_shift_anchor is not None
+                  else (self._queue_selection[0]
+                        if self._queue_selection
+                        else self._queue_selected))
+        if anchor is None:
+            anchor = 0
+        anchor = max(0, min(n - 1, anchor))
+        last = (self._queue_selection[-1]
+                if self._queue_selection else anchor)
+        target = min(n - 1, last + direction) if direction > 0 else max(0, last + direction)
+        if target == last:
+            return "break"
+        lo, hi = min(anchor, target), max(anchor, target)
+        self._queue_selection = set(range(lo, hi + 1))
+        self._queue_selected = target
+        self._queue_shift_anchor = anchor
+        self._update_queue_selection_paint()
+        return "break"
+
+    def _queue_visible_row_for(self, idx: int):
+        """Row widget currently rendering queue index ``idx`` (or None)."""
+        row = getattr(self, "_queue_rows", {}).get(idx)
+        if row is not None and row.winfo_exists():
+            return row
+        return None
+
+    def _update_queue_selection_paint(self) -> None:
+        """Repaint selection borders without rebuilding the queue list.
+
+        ``_refresh_queue`` used to be the only painter, but with 1000+ songs
+        it renders in 20-item batches — too slow to follow a held-down arrow
+        key. Selection is a pure border/colour change, so paint it live on
+        the rows that are on screen; rows rendered later pick the selection
+        up from ``_create_queue_item`` anyway.
+        """
+        sel = self._queue_selection
+        for idx, row in list(getattr(self, "_queue_rows", {}).items()):
+            if not row.winfo_exists():
+                continue
+            in_sel = idx in sel
+            if idx == self.rq.current_index:
+                pass  # playing row keeps its accent styling
+            elif in_sel:
+                try:
+                    row.configure(fg_color=COLORS["bg_hover"],
+                                  border_width=1, border_color=COLORS["text3"])
+                except Exception:
+                    pass
+            else:
+                try:
+                    row.configure(fg_color=COLORS["bg_card"],
+                                  border_width=0, border_color=COLORS["bg_card"])
+                except Exception:
+                    pass
+        self._update_queue_filter_btn()
+
+    def _queue_selection_or_none(self) -> Optional[int]:
+        """Primary selection for legacy single-select call sites."""
+        if self._queue_selection:
+            return self._queue_selection[-1]
+        return self._queue_selected
+
     def _remove_selected(self) -> None:
         if self._queue_selected is None:
             messagebox.showinfo("Info", "Please select a song from the queue first")
             return
-        self.rq.remove_song(self._queue_selected)
+        targets = self._queue_selection or {self._queue_selected}
+        for i in sorted(targets, reverse=True):
+            self.rq.remove_song(i)
         self._queue_selected = None
+        self._queue_selection = set()
         self._refresh_queue()
         self._update_now_playing()
 
@@ -3940,11 +4473,22 @@ class RadioApp(ctk.CTk):
         if self._queue_selected is None:
             messagebox.showinfo("Info", "Please select a song from the queue first")
             return
-        new_idx = self._queue_selected + direction
-        if not self.rq._valid_index(new_idx):
+        sel = self._queue_selection or {self._queue_selected}
+        # Move the block as one: quick sort/ids preserve visual order so the
+        # moved songs keep their internal arrangement.
+        sel_sorted = sorted(sel)
+        start = sel_sorted[0] + direction
+        if not self.rq._valid_index(start):
             return
-        self.rq.move_song(self._queue_selected, new_idx)
-        self._queue_selected = new_idx
+        if direction > 0:
+            # Moving down: rename top-down avoids non-overlapping indices.
+            for old in reversed(sel_sorted):
+                self.rq.move_song(old, old + direction)
+        else:
+            for old in sel_sorted:
+                self.rq.move_song(old, old + direction)
+        self._queue_selected = start
+        self._queue_selection = {start + (o - sel_sorted[0]) for o in sel_sorted}
         self._refresh_queue()
 
     def _clear_queue(self) -> None:
@@ -4428,10 +4972,22 @@ class RadioApp(ctk.CTk):
             device = self.audio_mgr.get_selected_device()
         except Exception:
             device = None
-        return {
+        out = {
             "endpoint_id": getattr(device, "endpoint_id", None),
             "name": getattr(device, "name", None),
         }
+        try:
+            st = self._dual_output.stats()
+            # Contract used by the smoke suite: dual_output.enabled always
+            # present (False when the mirror is off), endpoint when running.
+            out["dual_output"] = {
+                "enabled": bool(st.get("running")),
+                "endpoint": st.get("endpoint") or "",
+                "volume_pct": int(self.dual_vol_var.get()) if st.get("running") else 100,
+            }
+        except Exception:
+            pass
+        return out
 
     def _apply_remembered_output(self, ao: dict) -> None:
         """Re-apply the output speaker remembered in a .freq preset."""
@@ -4471,6 +5027,39 @@ class RadioApp(ctk.CTk):
             self._refresh_device_list()
         except Exception:
             pass
+        self._apply_remembered_dual(ao)
+
+    def _apply_remembered_dual(self, ao: dict) -> None:
+        """Restore Dual Output (device + per-output volume) from a .freq."""
+        ep = (ao or {}).get("dual_endpoint_id")
+        dcfg = (ao or {}).get("dual_output") or {}
+        if not ep and not dcfg:
+            return
+        # Disabled entry = no-op, exactly as the mirror contract demands.
+        if dcfg and not dcfg.get("enabled", False):
+            return
+        ep = ep or dcfg.get("endpoint") or ""
+        if not ep:
+            return
+        vol = float(dcfg.get("volume_pct", (ao or {}).get("dual_volume_pct", 100)))
+        try:
+            self.dual_vol_var.set(vol)
+            self.dual_vol_label.configure(text=f"{int(vol)}%")
+        except Exception:
+            pass
+        try:
+            self._dual_output.volume = vol / 100.0
+        except Exception:
+            pass
+        # Match the endpoint to a current device label for the dropdown.
+        for d in self.audio_mgr.get_output_devices():
+            if getattr(d, "endpoint_id", None) == ep:
+                label = d.name if len(d.name) <= 40 else d.name[:37] + "..."
+                if self._dual_output.start(ep, vol / 100.0):
+                    self.dual_var.set(label)
+                return
+        # Endpoint no longer present — device was unplugged since.
+        self.dual_var.set("Off")
 
     def _collect_settings(self) -> dict:
         """Collect all current settings into a serializable dict."""
@@ -4573,6 +5162,10 @@ class RadioApp(ctk.CTk):
             "mic_filters": dict(getattr(self.audio_player, "mic_filters",
                                         lambda: {})())
             if hasattr(self, "audio_player") else {},
+            # Dual Output at the TOP level — the restore path and the
+            # original smoke contract both read settings["dual_output"].
+            "dual_output": (self._collect_audio_output().get("dual_output")
+                             if hasattr(self, "_dual_output") else {}),
         }
 
     def _collect_mixer(self) -> dict:
@@ -4611,6 +5204,12 @@ class RadioApp(ctk.CTk):
         # Remembered output speaker
         try:
             self._apply_remembered_output(settings.get("audio_output", {}))
+        except Exception:
+            pass
+        # Dual Output (top-level key, plus the nested legacy form)
+        try:
+            self._apply_remembered_dual(settings.get("dual_output",
+                                        settings.get("audio_output", {}).get("dual_output", {})))
         except Exception:
             pass
         # Jingle
@@ -8733,6 +9332,13 @@ class RadioApp(ctk.CTk):
         self._sync_anthem_times()
         self._anthem_resume_token += 1
         self._anthem_resume_cancel.set()
+        # Tell the supervisor this is a CLEAN stop before anything else —
+        # it must never restart over the user closing the window.
+        try:
+            if getattr(self, "_ui_watchdog", None) is not None:
+                self._ui_watchdog.stop()
+        except Exception:
+            pass
         self.anthem.stop()
         settings = self._collect_settings()
         self.audio_player.shutdown()
@@ -8743,6 +9349,11 @@ class RadioApp(ctk.CTk):
             rec = getattr(self, "aircheck_recorder", None)
             if rec is not None and rec.recording:
                 rec.stop()
+        except Exception:
+            pass
+        # Dual Output: release the second engine and the loopback tap.
+        try:
+            self._dual_output.stop()
         except Exception:
             pass
         # Undo Focus Mode (sleep guard, update block, toast suppression)
@@ -9114,6 +9725,13 @@ if __name__ == "__main__":
     # 1) Create the main app — withdrawn so it's invisible
     app = RadioApp()
     app.withdraw()
+
+    # 0) UI freeze watchdog: catches a hung UI thread in the logs AND
+    #    feeds the out-of-process supervisor's heartbeat (only when
+    #    FREQ_SUPERVISED is set — running gui.py directly stays undirected).
+    _ui_watchdog = UiFreezeWatchdog(app)
+    _ui_watchdog.start()
+    app._ui_watchdog = _ui_watchdog
 
     # 2) Show splash (child of the hidden app)
     splash = FreQSplash(app)

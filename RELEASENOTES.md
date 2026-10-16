@@ -2,6 +2,116 @@
 
 ---
 
+## FreQ Ultimate 2026 (Builds 0927.x–0930) — reliability batch (source builds)
+
+Note: these builds were distributed during testing; this section records
+exactly what they shipped. The next numbered release (2026.1016.1) rolls
+DOWN all of it plus the new queue/now-playing/dual features.
+
+### ⏱ UI freeze watchdog + process supervisor (new)
+- **Outer guardian, outside the process entirely**: `freq_supervisor.py`
+  spawns the app as a child, watches the child's heartbeat file and
+  kills + restarts the whole tree when the UI thread stops pumping
+  (lesson from the 0926 freeze caught live by py-spy: an in-process
+  watchdog can log a hang but nothing inside a deadlocked process can
+  rescue it)
+- **`UiFreezeWatchdog` in gui.py**: the UI thread stamps a clock on
+  every event-loop tick; a watcher thread logs a WARNING with the REAL
+  stack of the blocked main thread (names the offending blocking call),
+  logs "resumed" when the loop comes back, and writes the supervisor
+  heartbeat every 50 ms while things run
+- Recovered autostarts show a Windows tray notification; the user's
+  clean window-close writes the clean-stop marker so the supervisor
+  exits instead of restarting over the user
+- Crash-loop guard: repeat-crash budget (3 within 120 s) then give up
+  — no endless spin; dev mode launched through "START FreQ
+  (Auto-Restart).bat"
+
+### 🔇 Silence Sentinel self-heal ladder (new, opt-in)
+- `sentinel_heal.py`: consumes the 0924 sentinel events and climbs a
+  recovery ladder one step per event (restart track → … → alert),
+  cooldown-gated, resets after sustained audio, modes off / dry_run /
+  active — dry_run never calls back, matching the structural-test
+  ground rule that the sentinel stays a passive observer
+
+### 🔊 Dual Output — mirror the broadcast mix to a second device (new)
+- `dual_output.py`: taps the MAIN device's WASAPI loopback (the same
+  tap as the VU meter) and re-plays it through a SECOND native render
+  engine on the chosen endpoint — a monitor in another room or the
+  co-host's headset hears EVERYTHING (music, live mics, master chain)
+- 48 kHz → 44.1 kHz linear-interpolation resampler with a
+  duration+frequency-preserving smoke check; one background pump
+  thread; stop() idempotent; volume setter (0–200%) hot-adjusts live
+
+### ✈ Air-Check track splitting (new)
+- `aircheck_split.py`: a finished air-check WAV is cut into one WAV
+  per track with ffmpeg stream copy (lossless), named
+  `track_001 - Artist - Title.wav` from real queue metadata; segments
+  inherit the recorder's retention policy
+
+### Smoke suites added
+-  `_smoke_sup_0928`, `_smoke_supervisor_0926` (supervisor full chain,
+  clean-stop marker + REAL watchdog heartbeat),
+  `_smoke_watchdog_0926` (deliberate UI stall caught with real stack),
+  `_smoke_heal_0928` (ladder modes + cooldowns), `_smoke_dual_0927`
+  (mirror engine + resampler + UI wiring), `_smoke_split_0928`,
+  `_smoke_marker_0926`
+
+---
+
+## FreQ Ultimate 2026 (Build 2026.1016.1) — queue UX + dual output UI (source build)
+
+### ✏️ Rename from the queue (new)
+- Right-click any queue row → **✏️ Rename…** — one small dialog edits
+  title AND artist; the rename also lands in the matching library
+  entry (same id) and persists into the `.freq` immediately
+
+### 🔢 Multi-select in the queue (new)
+- **Shift+click any row**: selects the whole range from the anchor row
+  to that row (highlighted borders, no re-render raster needed)
+- **Shift+Down**: keeps extending the selection DOWNWARD — repeat it
+  and the selection reaches the END of the list
+- **Shift+Up**: extends UPWARD to the FIRST entry
+- Selection repaints live on screen without rebuilding the list, so a
+  held-down arrow sweeps at tick speed even with 1000+ songs queued
+- Remove treats the multi-selection as one block; move keeps the
+  block's internal order
+
+### 🎞 Now-playing title marquee (new)
+- A title longer than the now-playing bar clips at the edge — and
+  slides left↔right automatically on a 200 ms tick until the whole
+  title has been readable; pauses while playback is paused; external
+  text changes (fresh track, anthem override) reset the slide safely
+
+### 📣 Dual Output wired into the UI (new)
+- A **second dropdown sits directly under the main output dropdown**:
+  pick the mirror device (or "Off"), then adjust the mirror's own
+  loudness with its slider (0–200%) — main and mirror outputs are now
+  independently controllable
+- Start/stop and endpoint hot-swap run through the native mirror
+  engine; the chosen device + volume persist in the `.freq` preset and
+  are restored at startup (a mirror device that vanished since is
+  handled gracefully)
+
+### 🩺 Waveform on installed machines (fixed)
+- The waveform generator used to spawn a **bare `ffmpeg`** command and
+  fall back to a flat line when that binary was not on PATH — on
+  machines without ffmpeg installed globally the waveform widget never
+  displayed anything. It now resolves ffmpeg through the same helper
+  the rest of the app uses (bundled `deps/ffmpeg-essentials` or the
+  `{app}\ffmpeg` copy the installer puts down), so the waveform works
+  out-of-the-box after install
+- A file that cannot be opened still degrades to flat silence — never
+  a crash
+
+### 🧪 Hardened test suite (new)
+- `test_ui_1016.py`: 44 checks across the five features above
+  (structural for Tk glue, logic-level for the marquee recurrence and
+  the selection ranges, DualOutputMirror unit behaviour incl. clamps
+  and idempotent stop)
+
+---
+
 ## FreQ Ultimate 2026 (Build 0926.1) — 2026-09-26
 
 **Broadcast Day build** — everything a one-person radio station needs to go

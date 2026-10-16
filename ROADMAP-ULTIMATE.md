@@ -1,6 +1,6 @@
 # FreQ Ultimate Series — Roadmap
 
-> อัปเดตล่าสุด: 2026-09-26
+> อัปเดตล่าสุด: 2026-10-16
 > **Ultimate Series** คือสายแฟล็กชิปของ FreQ — ความสามารถระดับสถานีวิทยุอาชีพ
 > แยกจากสาย **Stable Pack** (SP1–SP3) ซึ่งเน้นความเสถียรภาพของเวอร์ชันปัจจุบัน
 > ดูแผนระยะใกล้ได้ที่ `ROADMAP.md`
@@ -25,6 +25,38 @@
 1. ทุกรุ่นผ่านชุดเทสเดิมก่อนแจก (jingle stress, edge cases, soak ≥ 20k ops, ไม่มี Event Viewer crash)
 2. ไม่แตะพฤติกรรมเดิมที่ทำงานอยู่ — ฟีเจอร์ใหม่ต้องอยู่ข้างของเดิม พร้อม fallback เสมอ
 3. โหมดปกติต้องใช้ได้โดยไม่ต้องตั้งค่าอะไรเพิ่ม (opt-in สำหรับของหนัก)
+
+---
+
+## 📅 Build 2026.1016.1 — แผนรอบถัดไป (วาง 2026-10-16)
+
+> ธีมรอบนี้: **"รวมของที่สะสมเป็นรุ่นเดียว" (Consolidation build)** — ช่วง 0927–0930
+> สะสมโมดูลใหม่ 4 ตัวมาแล้ว **แต่ยังไม่มีตัวไหนถูก import เข้า gui.py เลย** (ตรวจด้วย grep),
+> git ยังไม่มี commit หลัง v2026.0926.2 (ไฟล์ untracked 17 ตัว) และเลขเวอร์ชันขัดกัน 2 จุด
+> (`version.txt` = 2026.0927.1 แต่ `installer.iss` ยังขึ้น 2026.0926.2)
+> Build นี้คือรอบเก็บกวาด + ต่อสายไฟให้ครบ + ออก installer รุ่นเดียวครบชุด
+
+| # | งาน | รายละเอียด | สถานะปัจจุบัน (ก่อนแผน) |
+|---|---|---|---|
+| P0 | **เก็บกวาด repo และเวอร์ชัน** | commit ไฟล์ untracked ที่จำเป็น (`release.py`, `push_source_code.py`, `freq_supervisor.py`, `dual_output.py`, `sentinel_heal.py`, `aircheck_split.py`, `templates/`, `plugins/`) · สคริปต์วินิจฉัย `_*.py` ตัดสินเก็บไว้เทียบหรือลบทิ้ง · ปิดกั้น build artifact ด้วย .gitignore · เขียน RELEASENOTES รวมงานที่ค้างตั้งแต่รุ่น 0926.2 → 0927.x ให้ทันเวลา · ยึดเลขเวอร์ชันเดียวด้วย `release.py --set-version 2026.1016.1` (แก้ทั้ง version.txt/installer.iss ทีเดียว) | untracked 17 ตัว, notes ค้างตั้งแต่ 0926.1, เลขเวอร์ชันขัดกัน |
+| P1a | **ต่อสายไฟสายสอง: Dual Output** | `dual_output.py` (mirror mix ทั้งรายการไปลำโพงที่สอง) ยังไม่ถูก import ใน gui.py เลย — เพิ่มหน้า Settings (เลือก device ที่สอง + สวิตช์ mirror), persist ลง .freq, default OFF, เพิ่มเช็คลง Broadcast Check | โมดูล + smoke `_smoke_dual_0927` ผ่านแล้ว / **gui 0%** |
+| P1b | **ต่อสายไฟสายสาม: Supervisor** | จุดเสี่ยงที่สุด: `gui.py` **ไม่มี heartbeat ตามสัญญา** — supervisor รอให้ gui เขียนไฟล์ heartbeat (`UiFreezeWatchdog` / `FREQ_SUPERVISED`) ทุกวินาที แต่ grep ใน gui.py ไม่เจอทั้งสองชื่อ → supervisor จะตัดสินว่าลูกค้างแล้วรีสตาร์ตซ้ำโดยไม่มีข้อมูลจริง งานรอบนี้: เพิ่ม UiFreezeWatchdog + heartbeat thread ใน gui.py, พก `freq_supervisor.py` + bat/Start-menu ผ่าน installer (release.py verify), smoke sup ขึ้น suite หลัก | supervisor + smoke 2 ตัวผ่าน / **สัญญา heartbeat ใน gui ยังไม่มี / installer ยังไม่แพ็ก** |
+| P1c | **Sentinel self-heal ใช้งานได้จริง** | `sentinel_heal.py` ladder (off / dry_run / active) ทำงานเดี่ยวได้แต่ไม่มีทางเปิดให้ผู้ใช้ — เพิ่มหน้า Settings (เลือกโหมด + ผลสถานะ), default OFF ตามกติกา U4, callback ต่อเข้า player/engine จริง 1 จุดต่อขั้น, structural test ของ sentinel เดิมต้องยังเขียว | โมดูล + smoke `_smoke_heal_0928` ครบ 4 เคสผ่าน / **UI + การต่อ audio callbacks ยังไม่เริ่ม** |
+| P1d | **Air-Check แยกแทร็กอัตโนมัติ** | ปิดงานค้างข้อ 3 ของแผน 0926.2: GUI จด TrackLog ทุกครั้งที่แทร็กเริ่ม (kind/title/artist/offset), ตอนหยุดการอัดเรียก `aircheck_split.split_recording` ตัด WAV เป็นไฟล์ต่อแทร็กแบบ stream copy, ชื่อไฟล์ `track_001 - Artist - Title.wav`, เกลาไฟล์เก่าตาม retention เดิม | โมดูล + smoke `_smoke_split_0928` ผ่าน / **GUI ยังไม่จด TrackLog** |
+| P2 | **ของเล็กท้ายรอบ** (ยกจากแผน 0926.2 ข้อ 5) | Enable All / Disable All ทั้งไมค์ chain · Broadcast Check เพิ่มตรวจสถานะสตรีม + master chain | ยังไม่เริ่มจากรอบหลัง |
+| P2-stretch | Plugin Settings หน้าจอ | จัดการปลั๊กอินรายตัวจากหน้า Settings (สถานะ + ปุ่ม on/off ตาม .freq) — ถ้าเวลาไม่พอเลื่อนไปรอบถัดไปเหมือนที่เคยทำมาก่อน | U5 ขั้นถัดไปจาก 0924.1 |
+| P3 | **ปิดเกณฑ์คุณภาพ** | suite หลักครบ: `test_jingle_stress` + `test_edge_cases` + `test_silence_sentinel` + `test_plugin_system` + `test_soak_stream` (12/12) + smoke sup/dual/heal/split ทั้งชุด · soak ≥ 20,000 ops (RSS นิ่ง, เธรดกลับฐาน) · `release.py verify` ครบทุก entry point ใน bundle จริง · ออกอากาศจริง ≥ 8 ชม. (เกณฑ์ Ultimate) | ยังไม่เริ่ม |
+| P4 | **ออกแจก** | `python release.py --set-version 2026.1016.1` → RELEASENOTES ส่วนใหม่ (รวมยอดสะสม 0927–1016) → `python release.py` ออก installer ไปที่ `_final/` · `push_source_code.py` กด source ก่อน, แล้ว `--publish` (GitHub Release + tag) | pipeline พร้อมแล้วแต่ยัง untracked |
+
+### ลำดับทำงาน (phase)
+
+1. **P0 เก็บกวาดก่อนเสมอ** — ปิดรากฐาน repo/เลขเวอร์ชันให้นิ่งก่อนเริ่มงานใหม่ ไม่เช่นนั้นงานใหม่จะถูกออกแจกโดยโค้ดยังไม่ผ่าน commit
+2. **P1 สี่งานทำขนานกันได้** (แต่ทุกสายต้องผ่านเกณฑ์ P3 ก่อนขึ้น installer)
+3. **P3 เช็คเสร็จแล้วจึงปิด P4** — ไม่มีอะไรขึ้น installer โดยข้าม quality gate
+
+### กติกายังเหมือนเดิม
+
+default OFF · ปิดแล้วทุกอย่างเดิมต้องเป๊ะ · เช็คถาวรลง suite หลักทุกชิ้น · ปรับค่าสดได้โดยไม่ต้องรีสตาร์ต
 
 ---
 
