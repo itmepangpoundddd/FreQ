@@ -1,0 +1,1090 @@
+# FreQ — Release Notes
+
+---
+
+## FreQ Ultimate 2026 (Build 2026.1018.1) — the queue stops costing seconds (source build)
+
+**A performance build with a design pass on top.** The queue is no longer a
+widget tree: it is **one canvas that draws only the cards you can actually
+see**, so a 400-song list opens in a fraction of a second instead of six, and a
+track change repaints two cards instead of rebuilding the whole list. The
+cards then got the approved look — 68 px tall, 15 px apart, never narrower
+than 130 px, every field present — and the queue text is now sized in
+**pixels**, so a 150 % Windows display no longer blows it up to twice the
+design. The same round found and fixed **three real crashes** and put a
+containment net under every Tk callback. Proven on the final bytes:
+**14 suites, 900 checks, every exit code 0.**
+
+### ⚡ The queue is one virtualized canvas (rebuilt)
+
+- The list used to build a widget per song (a `CTkFrame` at first, plain Tk
+  frames after): 400 songs meant ~3,200 widgets and **~6.1 s** of layout
+  before the queue was usable — re-run on every refresh, including every
+  track start
+- It is now **one `tk.Canvas`** as tall as the whole list, which keeps
+  `CTkScrollableFrame`'s native scrolling and scrollbar untouched, with only
+  the cards inside the viewport (plus 4 rows of overscan) materialised as
+  canvas items: **9 cards / 54 items** on a 400-song queue — and the same 54
+  items at 4,000 songs
+- Measured on the final build, **400 songs: rebuild 11–50 ms + first paint
+  72–132 ms** (a drawn list in well under a second, worst run ~180 ms)
+  versus ~6.1 s before. **4,000 songs: rebuild ~11 ms** — the first paint
+  still grows, see *Still open*
+- A track change repaints **two cards**: the current-row marker costs
+  **0.01–0.05 ms** (it used to rebuild the entire list). Holding a selection
+  arrow repaints the viewport in **~6 ms** per step
+- Row hits come from canvas geometry (`y // pitch`) instead of one widget per
+  row, so a click anywhere on a card — its text included — selects it, and a
+  click in the **15 px gap** counts as a click on the playlist background
+  (deselect), never as the card below
+- The visible window follows the scroll with a 40 ms poller that costs one
+  `yview()` call when nothing moved, and a `keep_scroll` path stops the
+  deferred selection repaint from yanking the list back to the top
+- The empty-queue placeholder and the list swap in and out cleanly (no
+  stacked placeholders), and the list canvas is kept across refreshes
+
+### 🚀 Minimize → restore is fast again (measured)
+
+- **Minimize the window, then bring it back: 3.63 s → 1.53 s** until the
+  window is usable again, timed on the operator's own machine with the same
+  .freq — **2.10 s less** every single time (this is the restore path, not
+  the cold start)
+- What changed in that window: the queue used to be a widget per song —
+  thousands of child windows sitting in the frame that gets restored — and
+  it is now one canvas that redraws only the cards you can see, so the song
+  count no longer decides how long the list takes to come back
+
+### 🎹 The queue is usable without the mouse (new)
+
+- Click a row and the list takes the keyboard: **↑/↓** walk the rows,
+  **Shift+↑/↓** extend the range, **PageUp/PageDown** move a screenful,
+  **Home/End** jump to the ends, **Enter** plays the selection
+- Every navigation handler consumed the key, so the window-wide ↑/↓ volume
+  shortcut keeps working everywhere else — the volume did not move once
+  while walking a 300-row list in the smoke run
+- **Ctrl+J** (or **🎯 Now** in the queue header) selects and scrolls to the
+  song on air; when nothing is playing, or the search filter hides that
+  song, a toast says exactly that instead of doing nothing
+- Movement works in positions of the *visible* list, so navigation and End
+  respect an active search filter instead of jumping to a hidden row
+- Revealing an off-screen row is one scroll-fraction move, not a widget
+  lookup: row #3,800 costs the same as row #8
+
+### 🎛️ One EQ, and mic chains live with the mic (changed)
+
+- The Settings tab's EQ (preset + Bass/Mid/Treble sliders) is **gone**: it
+  pushed the SAME native 3-band stage as the Master Broadcast Chain dialog,
+  so two UIs were fighting over one filter and two copies of the curve
+  lived in the .freq. The chain dialog is the single EQ now, and an older
+  .freq that still carries an `eq` block restores into those same bands
+- **Mic Filters has no Settings section any more** — a mic chain belongs to
+  a mic ITEM, so it opens from the queue row (Filter / right-click →
+  Filters) where the operator can see which mic is being edited
+- Nothing an existing .freq holds is lost: `mic_filters`,
+  `mic_filters_immediate` and the legacy `eq` block all still restore
+
+### 🎨 Queue cards match the approved design (new)
+
+- **68 px card, 15 px gap, never narrower than 130 px** — the pitch, the gap
+  and the floor are named constants, and the card width follows the panel
+  (912 px in a 922 px panel)
+- Left rail: position number (or the ▶️/⏸️ marker on the playing card) and
+  the source badge (⚡ cached / 🔗 YouTube / 📁 file / 🎙 mic); then the bold
+  title with the artist underneath; the duration right-aligned — every field
+  from the design, on every row
+- Rounded corners are one polygon per card (four sampled corner arcs), not
+  six canvas items, and the card is 6 px inset from the panel edge
+- **Resting cards are the same tone as the panel** (`#131920`), so the list
+  reads as one flat surface; hover lifts a card to `#1a2230`, a selected card
+  gets `#1c3050` with a border, and the playing card gets the now-playing tint
+  plus the accent border
+- Titles and artists are clipped against the real card width with an
+  ellipsis, so text can never run into the duration column
+
+### 🔤 Queue text is sized in pixels, not points (fixed)
+
+- The card fonts were specified in **points**, so Windows display scaling
+  multiplied them — 13 pt is ≈17 px at 96 DPI and ~1.5× that on a 150 %
+  display, which is why the same card looked about twice the design size
+- They are now **pixels** (`(family, -size)`): title **13 px bold**, artist
+  **11 px**, index and duration **11 px**, source badge 12 px — identical on
+  every display
+- Proven: a 10 pt label measured **152 px** wide at scaling 1.0 and
+  **279 px** at 1.75, while the queue's 13 px title stayed **207 px** at both
+
+### 🛡 The queue can no longer take the app down (fixed)
+
+- **Contained UI errors**: every Tk callback now goes through
+  `report_callback_exception` — the traceback is logged and counted, the user
+  sees one toast per 30 s at most, and nothing is ever re-raised, so the event
+  loop survives a button that throws
+- **Three real crashes found by a new soak and fixed**: the queue filter called
+  `.lower()` on a `None` title/artist (hand-edited `.freq`, stream entries);
+  the queue header summed `None` durations (`TypeError` — the list never drew
+  at all); `_fmt_dur(None)` did `int(None)` inside the card painter
+- Song lengths are read through **one total helper** (`None` / `NaN` / `inf` /
+  negative → `0`), so bad data can poison neither the header nor a card
+- **One unreadable song no longer blanks the list**: the card is skipped and
+  logged, the rest still draw
+- The 40 ms scroll poller **re-arms even when a repaint throws**, stops itself
+  on a torn-down window, and is cancelled in `destroy()` — no `after` on a
+  dead window
+- Queue rebuilds issued from a **worker thread are re-dispatched onto the UI
+  thread** (Tk widgets are main-thread only; reaching one from a worker is a
+  hard crash, not an exception)
+- **Opening a `.freq` can no longer kill the launch**: unreadable, corrupt or
+  truncated files, a top level that is not an object, non-song rows, an
+  unknown `status`, wrong-typed fields and an out-of-range `current_index` are
+  all handled (skip / default / clamp) instead of raising — the current queue
+  is kept when the file cannot be trusted
+
+### 🧪 Proven — regression suite on the final bytes (2026-10-18)
+
+| Suite | Result |
+|---|---|
+| `test_edge_cases.py` (main gate, `[qrow]` rewritten for the canvas + new `[stable]` guards) | ✅ 449/449 |
+| `test_ui_1016.py` | ✅ 109/109 |
+| `test_gui_wiring.py` | ✅ 18/18 |
+| `_smoke_queue_stability_1018.py` — 700 random queue operations + hostile songs + a callback that throws (new) | ✅ 16/16 |
+| `_smoke_select_1017.py` — real Tk selection flow on the canvas | ✅ 32/32 |
+| `_smoke_freq_roundtrip_1017.py` — panel vs file vs real restart | ✅ 61/61 |
+| `_smoke_watchdog_0926.py` | ✅ 5/5 |
+| `_smoke_supervisor_0926.py` | ✅ 10/10 |
+
+- **700 checks across 8 suites, every exit code 0** on the shipped bytes
+- The new soak drives the live app through 700 random operations
+  (refresh / filter / scroll / click / marker / add / remove) over a queue that
+  contains `None`, `NaN`, `inf`, negative and empty fields, then proves
+  containment: a deliberately raising callback is caught and the app keeps
+  working, a rebuild from a worker thread lands on the UI thread, and
+  `destroy()` while the 40 ms poller is armed leaves nothing behind
+- Guard changes are honest, not weakened: `[qrow]` now asserts the canvas
+  design (no widget per song, no CTk widget per row, drawing bounded by the
+  viewport) instead of the widget design it replaced, `RADII` left the wiring
+  baseline because it is finally used, and `_smoke_freq_roundtrip_1017.py`
+  now decodes its child process as UTF-8 (the Thai/emoji output made the
+  cp874 reader thread raise, which had been returning `None` instead of the
+  child's result)
+
+### ⚠️ Still open
+
+- Queues of thousands of songs still pay one long first paint (~0.5–0.9 s at
+  4,000) while Tk lays out a very tall canvas; the rebuild itself is flat at
+  ~11 ms
+- Emoji on cards are canvas text, so they render monochrome (CTk labels drew
+  them in colour)
+- A resting card shows no rounded corner — that is deliberate: it is the same
+  tone as the panel
+
+---
+
+## FreQ Ultimate 2026 (Build 2026.1017.1) — switches that tell the truth, dialogs that work (source build)
+
+**A finishing-and-truthfulness build.** Nothing in it exists for headline
+value: the Master Broadcast Chain dialog finally does what its buttons
+claim, the chain's "all OFF" path really is untouched audio, the two
+preferences that 1016.1 put on screen (**Immediate mode**, **Autosave**)
+finally survive a restart, the queue got the selection controls it was
+half-way through getting — and a new read-only Settings panel shows
+exactly what the saved settings hold, so "it persists" is something you
+can read instead of something you take on trust. Proven on the final bytes:
+**13 suites, 786 checks, every exit code 0.**
+
+### 🩺 Master Broadcast Chain — the dialog works now, and "raw" is raw again (fixed)
+
+- The two-pane dialog found its own pane host by guessing from widget
+  parents (`btn.master.master.master`), so clicking **3-Band EQ** /
+  **Compressor** / **Limiter** did nothing and all three panes stayed
+  stacked on top of each other. It locates the pane host explicitly, so
+  selecting a stage actually switches the pane
+- The **Limiter switch sent its ceiling even when it was OFF** — turning
+  the limiter off left it engaged
+- **Defaults reset a dict instead of the widgets**, so the next commit
+  pushed the old slider positions straight back; it now resets what you
+  see
+- The Settings page now states whether the chain is ON and says that the
+  stages only run inside the native WASAPI renderer (with a warning while
+  the native output is idle)
+- **The all-off path was not actually raw**: the player's default limiter
+  ceiling was `−1.0 dBFS`, and the native renderer reads `ceiling < 0` as
+  "limiter engaged" — so every supposedly untouched mix was quietly
+  **1 dB-limited** on the WASAPI path. The default is now `0.0` (in
+  `set_master_chain` / `get_master_chain` too), restoring the documented
+  bit-identical passthrough when every stage is OFF
+
+### ⏱ Immediate mode + Autosave survive a restart (new)
+
+- `master_chain_immediate` and `autosave {enabled, interval}` are now
+  saved with the rest of the app's settings and restored on every path
+  (startup, Open, Load Settings): the flag is back **before** the next
+  dialog opens, and the switch + seconds field re-sync on the Settings page
+  so the widgets never disagree with the running state
+- Hand-edited values are clamped to something that can actually run:
+  floor **5 s**, ceiling **24 h**, unparseable → **60 s** — never a
+  2-second save loop, and never an interval so large that autosave
+  silently never fires
+- Settings files written before this build still load unchanged (missing
+  keys keep the factory defaults)
+
+### ⌨️ Queue selection completed — deselect + ranges that do not crash (fixed)
+
+- **Ctrl+D** deselects the queue — a new action under 🎵 Queue in the Keys
+  tab, rebindable and resettable like every other action — and clicking
+  empty playlist space deselects too; the selection-only **Filter** button
+  hides again when nothing is selected
+- Fixed the real crash behind 1016.1's selection work: Shift+arrow read
+  `sel[0] / sel[-1]` while the selection state was a **set**, raising
+  `TypeError: 'set' object is not subscriptable`. 1016.1's *simulated*
+  `range_from()` test kept passing while the live handler blew up — the
+  new suite drives the REAL app through the real Tk bindings instead
+- Deselect is a no-op when nothing is selected and never rebuilds the
+  queue, so scroll position and playback are left alone
+
+### 🖱 Mouse wheel on every volume bar (new)
+
+- One notch = **±5 %** on the main bar, with multi-notch and
+  high-resolution deltas stepping the right amount, and values clamping at
+  each bar's own range (0–100, Dual 0–200)
+- The wheel works on the main output, the Dual mirror, the master fader
+  and every **channel fader** — a notch on a channel moves *that* channel
+  only; the X11 `Button-4/5` wheel buttons work as well as `<MouseWheel>`
+- Bound on the CTk slider's internal canvas with `add="+"`, so CTk's own
+  drag binding survives — the wheel never takes the drag slot
+
+### 🎞 Playlist import: "Add only first video in the playlist" (new)
+
+- The playlist picker now offers exactly three answers — **first video** /
+  **range** / **all** — and "first" fetches entry #1 and nothing else
+- `+ Add Video` routes a playlist link into this dialog; a one-video
+  playlist asks nothing and imports directly; Enter confirms, Esc cancels,
+  and a long first-video title no longer clips the buttons out of the window
+
+### 🩺 Dual Output slider opened Windows Sound settings (fixed)
+
+- Dragging the mirror volume slider called `os.startfile("ms-settings:sound")`
+  on every step — the body of `_open_sound_settings` had been merged into
+  `_on_dual_volume` during the 1016.1 merge, and the method it called no
+  longer existed. Split back into two methods
+- Guarded so it cannot come back: code-level checks in `test_ui_1016.py`
+  (catches a statement stranded mid-body, requires `_open_sound_settings`
+  to be its own method) plus `_smoke_dual_0927.py` checks that watch for
+  `os.startfile` while the slider is dragged
+
+### 🧪 Proven — regression suite on the final bytes (2026-10-17)
+
+| Suite | Result |
+|---|---|
+| `test_edge_cases.py` (main gate) | ✅ 398/398 |
+| `test_ui_1016.py` (1016.1 features + this round's guards) | ✅ 104/104 |
+| `test_gui_wiring.py` (permanent wiring guard, new) | ✅ 18/18 |
+| `_smoke_freq_roundtrip_1017.py` — panel vs file vs real restart (new) | ✅ 61/61 |
+| `_smoke_settings_persist_1017.py` — Immediate + autosave in a second process (new) | ✅ 34/34 |
+| `_smoke_master_chain_1017.py` — real dialog + real player (new) | ✅ 36/36 |
+| `_smoke_select_1017.py` — real Tk bindings, not the simulation (new) | ✅ 28/28 |
+| `_smoke_wheel_1017.py` (new) | ✅ 30/30 |
+| `_smoke_playlist_first_1017.py` (new) | ✅ 26/26 |
+| `_smoke_yt_mix_1017.py` (new) | ✅ 21/21 |
+| `_smoke_dual_0927.py` | ✅ 15/15 |
+| `_smoke_watchdog_0926.py` / `_smoke_supervisor_0926.py` | ✅ 5/5 · 10/10 |
+
+- **786 checks across 13 suites, every exit code 0** on the shipped bytes
+- Every headline claim is mutation-checked: breaking it in code turns
+  exactly the right checks red (dropping the widget→panel refresh, skipping
+  the post-save snapshot, making the panel editable, forcing the verdict to
+  "matches", dropping the restore-side snapshot), and the files were then
+  restored byte-identical (sha256 match) before the final run
+
+---
+
+## FreQ Ultimate 2026 (Builds 0927.x–0930) — reliability batch (source builds)
+
+Note: these builds were distributed during testing; this section records
+exactly what they shipped. The next numbered release (2026.1016.1) rolls
+DOWN all of it plus the new queue/now-playing/dual features.
+
+### ⏱ UI freeze watchdog + process supervisor (new)
+- **Outer guardian, outside the process entirely**: `freq_supervisor.py`
+  spawns the app as a child, watches the child's heartbeat file and
+  kills + restarts the whole tree when the UI thread stops pumping
+  (lesson from the 0926 freeze caught live by py-spy: an in-process
+  watchdog can log a hang but nothing inside a deadlocked process can
+  rescue it)
+- **`UiFreezeWatchdog` in gui.py**: the UI thread stamps a clock on
+  every event-loop tick; a watcher thread logs a WARNING with the REAL
+  stack of the blocked main thread (names the offending blocking call),
+  logs "resumed" when the loop comes back, and writes the supervisor
+  heartbeat every 50 ms while things run
+- Recovered autostarts show a Windows tray notification; the user's
+  clean window-close writes the clean-stop marker so the supervisor
+  exits instead of restarting over the user
+- Crash-loop guard: repeat-crash budget (3 within 120 s) then give up
+  — no endless spin; dev mode launched through "START FreQ
+  (Auto-Restart).bat"
+
+### 🔇 Silence Sentinel self-heal ladder (new, opt-in)
+- `sentinel_heal.py`: consumes the 0924 sentinel events and climbs a
+  recovery ladder one step per event (restart track → … → alert),
+  cooldown-gated, resets after sustained audio, modes off / dry_run /
+  active — dry_run never calls back, matching the structural-test
+  ground rule that the sentinel stays a passive observer
+
+### 🔊 Dual Output — mirror the broadcast mix to a second device (new)
+- `dual_output.py`: taps the MAIN device's WASAPI loopback (the same
+  tap as the VU meter) and re-plays it through a SECOND native render
+  engine on the chosen endpoint — a monitor in another room or the
+  co-host's headset hears EVERYTHING (music, live mics, master chain)
+- 48 kHz → 44.1 kHz linear-interpolation resampler with a
+  duration+frequency-preserving smoke check; one background pump
+  thread; stop() idempotent; volume setter (0–200%) hot-adjusts live
+
+### ✈ Air-Check track splitting (new)
+- `aircheck_split.py`: a finished air-check WAV is cut into one WAV
+  per track with ffmpeg stream copy (lossless), named
+  `track_001 - Artist - Title.wav` from real queue metadata; segments
+  inherit the recorder's retention policy
+
+### Smoke suites added
+-  `_smoke_sup_0928`, `_smoke_supervisor_0926` (supervisor full chain,
+  clean-stop marker + REAL watchdog heartbeat),
+  `_smoke_watchdog_0926` (deliberate UI stall caught with real stack),
+  `_smoke_heal_0928` (ladder modes + cooldowns), `_smoke_dual_0927`
+  (mirror engine + resampler + UI wiring), `_smoke_split_0928`,
+  `_smoke_marker_0926`
+
+---
+
+## FreQ Ultimate 2026 (Build 2026.1016.1) — queue UX + dual output UI (source build)
+
+### ✏️ Rename from the queue (new)
+- Right-click any queue row → **✏️ Rename…** — one small dialog edits
+  title AND artist; the rename also lands in the matching library
+  entry (same id) and persists into the `.freq` immediately
+
+### 🔢 Multi-select in the queue (new)
+- **Shift+click any row**: selects the whole range from the anchor row
+  to that row (highlighted borders, no re-render raster needed)
+- **Shift+Down**: keeps extending the selection DOWNWARD — repeat it
+  and the selection reaches the END of the list
+- **Shift+Up**: extends UPWARD to the FIRST entry
+- Selection repaints live on screen without rebuilding the list, so a
+  held-down arrow sweeps at tick speed even with 1000+ songs queued
+- Remove treats the multi-selection as one block; move keeps the
+  block's internal order
+
+### 🎞 Now-playing title marquee (new)
+- A title longer than the now-playing bar clips at the edge — and
+  slides left↔right automatically on a 200 ms tick until the whole
+  title has been readable; pauses while playback is paused; external
+  text changes (fresh track, anthem override) reset the slide safely
+
+### 📣 Dual Output wired into the UI (new)
+- A **second dropdown sits directly under the main output dropdown**:
+  pick the mirror device (or "Off"), then adjust the mirror's own
+  loudness with its slider (0–200%) — main and mirror outputs are now
+  independently controllable
+- Start/stop and endpoint hot-swap run through the native mirror
+  engine; the chosen device + volume persist in the `.freq` preset and
+  are restored at startup (a mirror device that vanished since is
+  handled gracefully)
+
+### 🩺 Waveform on installed machines (fixed)
+- The waveform generator used to spawn a **bare `ffmpeg`** command and
+  fall back to a flat line when that binary was not on PATH — on
+  machines without ffmpeg installed globally the waveform widget never
+  displayed anything. It now resolves ffmpeg through the same helper
+  the rest of the app uses (bundled `deps/ffmpeg-essentials` or the
+  `{app}\ffmpeg` copy the installer puts down), so the waveform works
+  out-of-the-box after install
+- A file that cannot be opened still degrades to flat silence — never
+  a crash
+
+### 🩺 Output row re-aligned (fixed, 1016 follow-up)
+- The far-right Now Playing output controls were stacking with mismatched
+  row widths before: the main output dropdown, the Dual mirror dropdown,
+  the two volume sliders, and the `48 / 50` position were scattering into
+  different widths and anchors
+- Rebuilt as **two uniform rows** that match each other, plus the `xx / xx`
+  position row on its own underneath:
+  - **Row 1**: main output (device dropdown + mirror toggle + mute +
+    0–100% slider)
+  - **Row 2**: Dual mirror (device dropdown + its own mute/volume row,
+    0–200%)
+  - **Bottom row**: `xx / xx` queue position, right-aligned
+- Both output rows now use the same widget widths so the dropdowns and
+  sliders sit in clean columns instead of drifting; the main mute button
+  sits on the main row and the mirror row carries the mirror's own volume
+  so it is obvious which loudness you are moving
+
+### 🩺 Now-playing playback-state edge case (fixed)
+- The now-playing slot was defaulting to a "playing" appearance when it
+  could not reliably tell pause from play, and the playback indicator
+  could override the marquee when the bar was paused
+- The slot now stops defaulting to playing in that ambiguous case, and the
+  play indicator no longer overrides the marquee while the bar is paused
+
+### 🧪 Hardened test suite (new)
+- `test_ui_1016.py`: 44 checks across the five features above
+  (structural for Tk glue, logic-level for the marquee recurrence and
+  the selection ranges, DualOutputMirror unit behaviour incl. clamps
+  and idempotent stop)
+
+---
+
+## FreQ Ultimate 2026 (Build 0926.1) — 2026-09-26
+
+**Broadcast Day build** — everything a one-person radio station needs to go
+on air with confidence: **Go Live** streams the real broadcast mix (live
+mics + music + every filter) to Icecast/SHOUTcast listeners, **Auto
+air-check** records every show by itself, the **Master Broadcast Chain**
+(EQ → Compressor → Limiter) gives the on-air signal a broadcast voice, and
+the mic side carries a NINE-stage native filter chain with real OBS-style
+sliders. Audio survives device format changes mid-broadcast; pre-show
+readiness tools and a friendlier queue round it out. Plus every fix from
+0925.1/0925.2.
+
+### 🎛 Mic Filters — full OBS-style dialog with Immediate mode (new)
+- Select a mic segment in the queue → **Filter** (or Settings → 🎙 Mic
+  Filters → ⚙ Configure) opens the OBS layout: the 9-stage chain as a list
+  on the LEFT with a green dot on every active stage, the selected stage's
+  parameters on the RIGHT
+- **Nine native C++ stages**, in fixed order:
+  **Suppression → Gain (dB) → Compressor → Limiter → De-esser → Mic EQ →
+  Echo → Upward Compressor → Expander**
+- **Immediate mode** toggle (remembered in .freq):
+  - CHECKED — every slider/switch edit reaches the engine the moment you
+    release it (no Apply needed — tune live while you speak)
+  - UNCHECKED — nothing changes until you press **Apply**
+- **Real parameter sliders per stage** (not just Gentle/Strong):
+  Suppression high-pass cutoff / gate threshold / gate floor · Gain
+  0…+24 dB · Compressor & Upward-Compressor threshold + ratio · Limiter
+  ceiling · De-esser split freq + threshold · Mic EQ low/presence shelf ·
+  Echo delay 30–600 ms + feedback + wet mix · Expander threshold + depth
+- Gentle/Strong buttons remain as instant starting points, and a
+  per-stage **Defaults** button resets that filter to the factory sound
+- All values push into the engine atomically on slider release (never a
+  flood while dragging), persist in .freq, and default OFF so raw sound
+  stays byte-identical
+
+### 🟢 Filter chain truthfulness fixes (fixed)
+- The green dots in the filter list used to read a stale snapshot taken
+  when the dialog opened: toggling a stage (or pressing **Defaults**)
+  left the dot frozen — filters you had switched OFF glowed green (e.g.
+  "Mic EQ turns itself on") and Defaults refused to let a dot go dark
+- Defaults also silently RE-ENABLED the stage it reset (`var.set(True)`)
+- Both are gone: Defaults now resets parameters ONLY and never touches
+  your on/off switches, and the dots mirror the true state on every
+  change — live engine state when Immediate mode is on, the pending
+  Apply state when it is off
+
+### 🎚 OBS-style Filter button on the queue (new)
+- Select any song (or mic segment) in the queue and a **Filter** button
+  pops up next to the action bar — exactly like OBS's per-source Filters
+- Songs open **"Filters for '<title>'"**: 3-band EQ, Loudness Auto-Gain
+  and Crossfade — the same live knobs as the Mixer page, one Apply away
+- Mic segments open the native **9-stage mic filter chain** dialog
+- Bonus fix: with a queue **search** active, clicking a row used to
+  resolve to the WRONG song (filtered view renumbered rows) — the
+  original queue indexes are now preserved everywhere
+
+### ⚡ One-click EQ presets in the song Filters dialog (new)
+- **Vocal boost / Bass cut / Flat** buttons at the top of
+  "Filters for '<song>'" fill the EQ sliders instantly — the same preset
+  table the Settings page uses (vocal −3/6/+2 dB, bass cut −6/+1/0 dB)
+- Nothing reaches the engine until **Apply**, so you can audition a
+  preset against the sliders and back out with Close
+- "Bass cut" is a new preset added to the shared table (handy for
+  taming boomy room recordings)
+
+### 📡 Broadcast Check — one-click pre-show readiness probe (new)
+- Settings → 📡 Broadcast Check → **▶ Run broadcast check**
+- Strictly read-only: opens no live sessions, moves nothing, changes nothing
+- Reports: queue health (incl. missing files), mics detected, output engine,
+  loopback tap (with live peak while on air), mic-filter chain state,
+  plugin load errors, free disk space for recordings
+- Red lines tell you exactly what to fix before the show; green means
+  "All clear — ready for broadcast."
+
+### 🩺 Mic Doctor — which mic actually has signal? (new)
+- Settings → 📡 Broadcast Check → **🎙 Mic Doctor — test every mic…**
+- Opens each capture endpoint ALONE for ~2.5 s through the same native
+  engine path the app uses, shows the live peak, then closes it again
+- Ends the classic "is it plugged in? is it the Default?" guesswork —
+  mics that show ✔ SIGNAL are the ones to pick in Add Mic Segment
+- Probing runs on the UI thread via timed ticks (never touches widgets
+  from worker threads) and never touches a session the app already has open
+
+### 🎚 Master Broadcast Chain — EQ → Compressor → Limiter on the ON-AIR mix (new)
+- Settings has a new **⚙ Configure Master Chain…** dialog (OBS-style:
+  stage list on the left, parameters on the right, Immediate mode,
+  Gentle/Strong-style Defaults): three native C++ stages processing the
+  FINAL broadcast mix — music AND live mics together, exactly what
+  listeners get
+- **3-Band EQ** (bass shelf 120 Hz / mid peak 1 kHz / treble shelf
+  3.2 kHz, ±12 dB), **Compressor** (threshold −48…−6 dBFS, ratio
+  1:1…8:1 — evens loud/soft passages of the whole show) and **Limiter**
+  (safety ceiling −6…0 dBFS, engaged independently)
+- Runs inside the render engine after the mic mix-in: all three output
+  paths (playing / paused-with-voice / mic-over-silence) are chained, so
+  the voice-over-paused-music trick is processed too
+- **All OFF (default) = byte-identical legacy path**; parameters are
+  lock-free atomics — the render thread picks up edits on the next
+  buffer with zero glitch risk; persists in .freq; survives endpoint
+  switches (re-pushed after every engine swap)
+- Proven by a C++ **self-test with no device needed**: OFF is a
+  byte-identical pass-through, EQ boosts a 60 Hz sine, the compressor
+  pulls a loud 1 kHz peak toward the threshold, the limiter clips at the
+  ceiling — wired into the main suite so a broken stage fails the build
+
+### 🎙 Auto air-check — records every show automatically (new)
+- Air-Check tab has an **"Auto-record when ON AIR"** switch (default OFF):
+  while on, the moment the show starts — a **Live mix stream** connects or
+  a **live microphone** opens — the native recorder starts capturing the
+  full broadcast mix, and it saves the moment the show ends
+- Powered by the native engine (WAV written entirely in C++ — a busy UI
+  can never stall or corrupt a recording), reusing your save folder,
+  MP3-export setting and keep-days pruning
+- **Manual and scheduled recordings always win** — auto never touches a
+  recorder you started yourself, and repeated ticks never double-start
+- Verified end-to-end: on-air auto start, off-air stop with MP3 export
+  (WAV removed), prune ran, no double-record, persistence round-trip
+
+### 🧊 App freeze when a show ends (fixed)
+- Ending a show (or changing a track while streaming) could freeze the
+  whole window ("Not Responding"): the auto air-check's MP3 export ran
+  ffmpeg on the UI thread (seconds for a long recording), and the ICY
+  metadata push could block up to its 5 s socket timeout on every track
+  change
+- Both now run on background threads: the UI shows "saving air-check…"
+  the instant a show ends and updates when done (measured: the tick
+  returns in ~6 ms), and metadata pushes return immediately (measured:
+  ~1 ms) even against a dead server
+- Also hardened the on-air detection so a failed engine probe can no
+  longer silently disable auto air-check
+
+### 🧪 Proven together — the combo soak (new)
+- A dedicated suite runs **Go Live and auto air-check AT THE SAME TIME**
+  (both tap the same loopback) while the stream server is killed
+  repeatedly: **9 kills in 55 s, zero interference** — the recording kept
+  growing through every kill, the stream ladder kept recovering, the
+  show-end transition saved a valid 55 s WAV by itself, and no orphaned
+  ffmpeg survived the shutdown (`test_combo_aircheck_stream.py`)
+
+### 🔴 Go Live — broadcast the live mix to listeners (new)
+- The streaming tab has a **"Live mix — broadcast mics + music as heard"**
+  switch: ON = listeners hear the real-time master mix (live mics, music,
+  the whole 9-stage filter chain) through the native C++ sender; OFF
+  (default) = the legacy single-file stream, byte-identical to before
+- Song titles follow the show automatically: every queue item (songs,
+  jingles, even "Live voice" for mics) is pushed to the Icecast admin
+  API as ICY metadata so listener players show what's on air
+- Status line shows real stream state (Streaming / Reconnecting / Error),
+  MB sent, and reconnect attempts — same Start/Stop buttons, same
+  server settings, and the switch is remembered in .freq
+- Auth matches the legacy path (Basic source header), encoder is the
+  bundled ffmpeg (128/192/256/320 kbps selectable), and reconnects are
+  handled inside the native thread (see the kill-storm soak below)
+
+### 📡 Native broadcast stream — hardened by a kill-storm soak (new)
+- The new native sender (`  native_stream.cpp`: loopback → ffmpeg → Icecast/SHOUTcast in one C++ thread) survived a dedicated **50,000-op
+  soak** built to kill it: **668 forced disconnects** (clean shutdowns,
+  RST resets, 144 full server outages), 47 fresh sessions — **668/668
+  recoveries, zero failures, worst recovery 2.1 s**
+- **118 MB** streamed end-to-end during the storm; RSS flat (Δ+1.0 MB),
+  threads back to baseline, no orphaned ffmpeg.exe, final fresh session
+  still streams
+- The soak caught (and this build fixes) real broadcast hazards: a pipe
+  deadlock where a stalled server could park the sender forever (a
+  separate stall monitor now cancels blocked I/O), ffmpeg's chatty
+  teardown errors polluting the app's stderr, and a wedged thread that
+  used to lock the module — the stream now resets cleanly and a fresh
+  session starts immediately
+- The kill-storm harness ships as `test_soak_stream.py` (12 checks) so
+  every future build can be tortured the same way
+
+### 🔄 Seamless mid-stream sample-rate/format changes (new)
+
+- Switching a device's sample rate / bit depth / format mid-broadcast
+  (Sound control panel, driver resets, "audio enhancements" toggles) no
+  longer kills the engine — playback used to stutter, restart or jump
+  to another endpoint
+- The render thread now **re-opens the device in place** with the new
+  mix format (up to 8 tries while the driver settles): buffered music
+  is preserved, the stream keeps flowing, and only a truly dead device
+  falls back to the old migrate path
+- The **mic capture path heals itself too** — the resampler is rebuilt
+  for the new mix format and the voice keeps flowing through the same
+  9-stage filter chain without interruption
+
+### 🐛 Opening .freq files / adding mics crashed (fixed)
+- Loading a playlist or adding a Microphone segment threw
+  "cannot unpack non-iterable Song object" and the queue stopped
+  rendering — an internal list-shape mismatch introduced with the
+  filtered-view fix. Queue rows now carry their original index in ONE
+  consistent shape on every path (open, add, search, re-render)
+
+### 🛠 Also in this build
+- All 0925.2 fixes: VU meter no longer freezes during mic segments,
+  live-mic open retries once before falling back to record-then-play
+- All 0925.1 features: permanent mic endpoint ids (mics survive Windows
+  reshuffling), typing no longer triggers playback hotkeys, resizable
+  Add Mic Segment that remembers your mics and gains, Plugins page + SDK
+  with example scripts
+- Verified by the expanded regression suite — **332 checks** in the main
+  suite (118 added today), jingle stress **41/41**, multi-mic **13/13**,
+  pause-storm ALL PASSED — and stability under load: a
+  **100,000-operation soak** (0 failures, memory flat at +0.7 MB, threads
+  back to baseline, 2,574 live-mic sessions) and a **300-cycle
+  device-recovery storm** with music AND a live mic running (every cycle
+  clean)
+
+---
+
+## FreQ Ultimate 2026 (Build 0925.2) — 2026-09-25
+
+**Hotfix build over 0925.1**: two broadcast-critical fixes reported from
+real on-air use — the frozen VU meter that made working microphones look
+dead, and live-mic opens that sometimes fell into record-then-play.
+
+### 📊 VU meter stays live during mic segments (fixed)
+
+- While a mic segment used the record-then-play fallback ("Recording
+  microphone…" status), the progress/VU tick was skipped entirely and
+  the meter froze at zero — a perfectly healthy mic looked dead. The VU
+  meter now measures real output on EVERY tick in every mode (music,
+  live mic, fallback recording), and the "audible now" state includes
+  the fallback stage.
+- The progress bar/waveform logic is untouched for normal playback.
+
+### 🎙 Live mics retry before falling back (fixed)
+
+- A freshly plugged or just-released endpoint sometimes refused the
+  first open, silently pushing the segment into "Recording microphone…"
+  mode. The live path now retries once after a short settle — the
+  fallback only happens when a mic is genuinely unavailable, and the
+  retry is logged.
+
+### Everything from Build 0925.1
+
+- 4-stage native mic filter chain (Suppression → Compressor → Limiter →
+  De-esser), permanent mic endpoint ids (the no-sound fix), typing-safe
+  playback hotkeys, resizable Add Mic Segment dialog that remembers your
+  setup, the in-app plugin manager + SDK guide, and the hardened release
+  pipeline with a test gate.
+
+---
+
+## FreQ Ultimate 2026 (Build 0925.1) — 2026-09-25
+
+The broadcast-hardening build: live meters you can finally trust during
+mic segments, a full OBS-style filter chain, the fix for "mic segments
+play no sound", and a plugin system you can manage from the app.
+Verified with the full suite (204 cases) plus a 10-minute soak of
+147,191 playback operations with zero failures and no memory growth.
+
+### 📊 VU meter no longer freezes during mic segments
+
+- **The misleading bug is fixed**: while a mic segment used the
+  record-then-play fallback, the whole progress/VU tick was skipped —
+  the meter froze at zero and made a perfectly working mic LOOK dead.
+  The VU meter now measures the real output on EVERY tick, in every
+  mode (music, live mic, fallback recording), and the "audible now"
+  state includes the fallback stage.
+- **Live mics retry before giving up**: a freshly plugged or just
+  released endpoint sometimes refused the first open, silently pushing
+  the segment into "Recording microphone…" mode. The live path now
+  retries once after a short settle — the fallback only happens when a
+  mic is genuinely unavailable, and the retry is logged.
+
+### 🔧 Mic segments: the no-sound bug is fixed
+
+- **Root cause found and fixed**: mic segments stored the microphone as
+  a LIST POSITION, and Windows re-numbers capture devices on every
+  reboot or unplug (virtual mics reshuffle constantly). After a restart
+  a saved segment could silently point at the WRONG — usually muted —
+  microphone. Queue items now remember the microphone's **permanent
+  endpoint id**; positions remain only as a fallback. Existing `.freq`
+  files keep working.
+- The record-then-play fallback path also receives the stable endpoint,
+  so both playback paths pick the right mic.
+
+### 🎙 Mic Filters — De-esser added (4-stage native chain)
+
+- The OBS-style chain is now **Suppression → Compressor → Limiter →
+  De-esser**, all inside the C++ engine (nothing runs in Python). The
+  new split-band De-esser ducks only the sharp "S" range (~5 kHz) when
+  sibilance spikes — the voice body is untouched. Every stage has an
+  on/off switch and a Gentle/Strong choice in Settings → 🎙 Mic Filters,
+  applies live to already-open mics, and is persisted in the `.freq`
+  preset. With every stage off the audio path is byte-identical to
+  previous releases.
+- **Fix**: the legacy bypass used to check only the Suppression stage,
+  so running Compressor or Limiter alone silently did nothing. The
+  bypass now requires EVERY stage off; a lone stage runs for real.
+
+### ⌨ Typing no longer triggers playback hotkeys
+
+- Fixed: playback hotkeys (Space / N / P / M / arrows) fired while you
+  were typing in any settings field, skipping songs mid-sentence. All
+  playback hotkeys are now guarded while a text widget holds focus —
+  including CustomTkinter's inner entries and comboboxes. Modifier
+  combos (Ctrl+S / Ctrl+O) keep working while typing.
+
+### 🎚 Add Mic Segment dialog: resizable + remembers your setup
+
+- The dialog is resizable with the Add button locked to the bottom —
+  it can no longer fall off the window on small screens (the quad-mic
+  rows once pushed it out of view).
+- Your last microphone choices AND per-mic gains are remembered and
+  prefilled next time — within the session and across restarts (stored
+  in the `.freq` preset; unknown/stale devices fall back safely).
+
+### 🧩 Plugins — manage them from the app
+
+- New Settings → 🧩 Plugins panel: per-plugin on/off switches, health
+  badges (error counters, auto-disable warnings), failed-load rows,
+  **Reload** (picks up new .py files without a restart) and **Open
+  folder**.
+- The full SDK guide ships as **PLUGIN-SDK.md** (three worked examples:
+  now-playing webhook, daily on-air log, external-script bridge) plus a
+  new atomic-write **OBS overlay** example in `plugins/examples/`.
+
+### 🛠 Release pipeline hardening
+
+- Every build now starts by syncing the whole source tree to
+  installer.iss (version.txt, release-notes check) and runs the main
+  test suite as a **gate before any compilation** (`--skip-tests` for
+  emergency hotfixes only).
+- All CLI scripts (`release.py`, `build.py`, `push_source_code.py`,
+  `build_native_meter.py`, `create_wizard_images.py`) got proper
+  `--help` with examples, and UTF-8-safe console output.
+
+---
+
+## FreQ Ultimate 2026 (Build 0924.1) — 2026-09-24
+
+### 🎙 Mic Filters — OBS-style native chain (opt-in, default OFF)
+
+- **A real filter chain for live mics, all native C++**: mic segments run
+  an OBS-style three-stage chain inside the audio engine —
+  **Noise Suppression → Compressor → Limiter → De-esser**, fixed
+  broadcast order. Suppression = high-pass (~80–120 Hz) + smoothed
+  noise gate (rumble, hiss, room tone, PC fans). Compressor = evens
+  loud/soft phrases (gentle/strong ratios). Limiter = transparent
+  ceiling that stops accidental clipping (soft/hard). De-esser =
+  split-band sibilance tamer that ducks only the sharp "S" range
+  (~5 kHz) — the voice body is untouched.
+- **Per-stage on/off + strength**: Settings → 🎙 Mic Filters → ⚙ Configure
+  opens an OBS-style dialog; every stage has a switch and a
+  Gentle/Strong choice. The chain persists in the `.freq` preset, applies
+  live to already-open mics, and engines created later inherit it.
+- **Off means untouched**: with every stage off, the mic mix path is
+  byte-identical to previous releases — no hidden processing, ever.
+
+**The Ultimate era begins.** Starting with this build FreQ switches to a
+year-based versioning scheme — `Ultimate 2026 (Build mmdd.round)`, where
+Build is the release month+day and the final number counts update rounds
+within that day. This build carries every SP3 improvement (four live
+microphones with per-mic gain, real-time mic on every engine, mic
+pause/resume, the PortAudio crash fix) and a new accurate update checker
+that understands the new scheme.
+
+### 🏷 New versioning scheme
+
+- Releases are now identified as **Ultimate 2026 (Build 0924.1)** — the
+  year is the major version, and each build is dated by month+day with an
+  update-round counter, so a build's age is readable at a glance.
+- The update checker compares the new scheme against every historical
+  tag format (legacy `2.7.4-SP3`, `v2.7.4`, `2.7.2_SP1`) — any Ultimate
+  build outranks the entire legacy 2.x series.
+
+### 🧩 Plugin SDK — write your own plugin (v1, observe-only)
+
+- **Drop a Python file into `plugins/` and FreQ runs it**: plugins receive
+  `on_start`, `on_track_started`, `on_track_finished` and `on_shutdown`
+  events with the track's title/artist/source/duration. The full SDK
+  guide ships as **PLUGIN-SDK.md** (three worked examples: webhook,
+  daily on-air log, external-script bridge), plus ready-to-copy
+  examples in `plugins/examples/` (now-playing webhook and an
+  atomic-write **OBS overlay** JSON feed).
+- **Safe by design**: plugins get only `ctx.log`, `ctx.notify` and a
+  read-only `ctx.snapshot()` — there is no pathway into the audio engine,
+  enforced by a structural test that fails if one ever appears. Track
+  data arrives as plain dict copies, never live objects.
+- **A broken plugin can never break the app**: load failures are skipped
+  and reported, every hook call is wrapped, and a plugin that fails 3
+  times in a row is disabled automatically. Hooks run on a background
+  thread, so a slow webhook never stalls the UI or the audio.
+- **Your choice persists**: enable/disable per plugin via the `.freq`
+  settings file.
+
+### 🤖 Silence Sentinel — first Ultimate feature (dry-run, opt-in)
+
+- **Watches for dead air**: a new sentinel measures the broadcast output
+  through the same WASAPI loopback tap as the VU meter and warns when the
+  output stays silent too long while a segment is playing (default 10 s,
+  ≈ -48 dBFS threshold). The warning lands in the log and the status line.
+- **Dry-run by design**: it NEVER touches playback, the queue or the
+  engine — enforced structurally, a test parses the module and fails if a
+  playback API ever appears in it. Recovery actions (re-skip, engine
+  restart) come in a later Ultimate build and will ship default-off.
+- **Opt-in**: disabled by default; enable with the environment variable
+  `FREQ_SILENCE_SENTINEL=1` — or from the new Settings section (toggle,
+  silence window in seconds, a −20…−100 dBFS threshold slider and an
+  events counter). The choice persists in `.freq` settings files.
+- **No false alarms**: stopped playback, live mic segments, and an
+  unavailable level tap are never counted as dead air — no data means no
+  warning. Repeated alerts during one silent stretch are rate-limited to
+  one per 30 s.
+- **Tested inside the main suite**: 40 fake-silence cases (controllable
+  clock, no audio hardware, nothing audible) run as part of
+  `test_edge_cases.py` (102 checks total).
+
+### 🔄 Update checker (now actually functional)
+
+- **Fixed the stale version**: the app always reported itself as `2.5.47`
+  (a constant left in the code). It now reads the version from
+  `version.txt`, which the build stamps from the installer on every
+  release — one place to bump, correct everywhere, nothing left to forget.
+- **Understands every tag format this project publishes**: correct
+  comparisons for `2026.0924.1`, `2.7.4-SP3`, `v2.7.4` and legacy
+  `2.7.2_SP1`-style tags (the old parser silently failed on those, and
+  the SP suffix was never read at all).
+- **Ordering is correct**: Build 0924.2 is newer than 0924.1, 0925.1 is
+  newer than every 0924.x, and any Ultimate 2026 build is newer than any
+  legacy 2.7.x — updates are announced exactly when they should be.
+- **No data → no nagging**: if the local version cannot be read or the
+  API call fails, the checker stays silent instead of guessing.
+- The update dialog and the About page now display the version from the
+  same source — they can no longer disagree.
+
+### 🗺 What's next (in development)
+
+See `ROADMAP-ULTIMATE.md` for the full Ultimate Series plan: voice
+tracking, separate headphone (cue) output, sound pads, multi-station,
+audience listen links and unattended automation.
+
+---
+
+## FreQ 2.7.4 SP3 (Stable Pack 3) — 2026-09-23
+
+**SP3 makes microphones work the way they should — and makes the update
+checker work for the first time.** Up to four simultaneous live mics with
+per-mic gain, real-time voice on every playback engine, pause/resume for
+mic segments, a hard fix for a crash some old USB webcam microphones could
+trigger, and an accurate update checker. Updating over SP2 is safe; all
+existing settings and queue files keep working.
+
+### 🔄 Update checker (now actually functional)
+
+- **Fixed the stale version**: the app always reported itself as `2.5.47`
+  (a constant left in the code). It now reads the version from
+  `version.txt`, which the build stamps from the installer on every
+  release — one place to bump, correct everywhere, nothing left to forget.
+- **Understands every tag format this project publishes**: correct
+  comparisons for `2.7.4-SP3`, `v2.7.4` and legacy `2.7.2_SP1`-style tags
+  (the old parser silently failed on those, and the SP suffix was never
+  read at all).
+- **SP ordering is correct**: SP2 is newer than SP1, and `2.7.5` is newer
+  than any SP of `2.7.4` — updates are announced exactly when they should
+  be.
+- **No data → no nagging**: if the local version cannot be read or the
+  API call fails, the checker stays silent instead of guessing.
+- The update dialog and the About page now display the version from the
+  same source — they can no longer disagree.
+
+### 🗺 What's next (in development)
+
+See `ROADMAP.md` for the full plan: voice tracking, separate headphone
+(cue) output, and a watchdog that restarts the app unattended.
+
+### 🛡 Fixed: crash when opening certain microphones
+
+- **Fixed a hard process crash (0xC0000005 inside `libportaudio64bit.dll`)**
+  triggered when opening some old USB webcam microphones (reported from the
+  field with a "Microphone (2- USB2.0 MIC)" device). The crash happened
+  inside a third-party audio DLL where no error handler could catch it.
+- Microphones now travel **exclusively through FreQ's native WASAPI engine**
+  on Windows — PortAudio never enumerates or opens a capture device there
+  anymore. The same problematic webcam now opens and streams correctly
+  (verified on the actual hardware).
+- The legacy PortAudio path remains available only on non-Windows platforms
+  where the native module is absent.
+
+### 🎙 Four simultaneous live microphones, each with its own gain
+
+- Mic segments now support **up to 4 microphones at once** (panels,
+  interviews, guest DJs). Second/third/fourth mic rows in the Add Mic
+  Segment dialog, each with an individual **gain (0.5×–4.0×)** — quiet
+  webcam mics can be boosted, hot ones tamed.
+- Each mic is an independent capture + FIFO inside the engine: one mic
+  failing, going silent or being unplugged never affects the others.
+- The 4-mic ceiling is enforced both in the player and in the C++ engine.
+- Queue items store device endpoint ids, so re-plugging devices does not
+  make queued segments point at the wrong mic.
+
+### ⚡ Live mic works on every playback engine — no more "Recording…" delay
+
+- Previously, a live (real-time) mic required the WASAPI playback engine;
+  when music ran on the default engine, mic segments fell back to
+  **record-first-play-later**, which delayed the voice by the whole clip
+  length.
+- Mic segments now always run **real-time (~20 ms)**: when the music engine
+  cannot host them, FreQ spins up a dedicated mic render engine once and
+  reuses it. Music playback is never touched.
+- Emergency Mic benefits from the same path on every engine.
+
+### ⏸ Pause / Resume for mic segments
+
+- Pause now stops the **voice mix too**: silence while paused, and on
+  resume you hear the live voice immediately — nothing said during the
+  pause is replayed afterwards.
+- The clip timer is **extended by the paused time**, so a 30-second segment
+  plays its full 30 seconds of voice.
+- Stopping during a pause clears all transport state cleanly (no stuck
+  progress bar, no spurious next-track callback).
+
+### 🧹 Anti-echo and queue-flow hardening
+
+- Starting a new segment **supersedes** the previous live session — rapid
+  re-presses can never double the voice or stall the queue.
+- Switching the playback engine retires the dedicated mic engine, so the
+  voice can never be mixed by two engines at once (echo).
+- The record-then-play fallback (still used when the native engine is
+  truly unavailable) now retries transient USB opens, treats silent
+  endpoints as failures, and never leaves empty WAV files behind. A mic
+  that fails is not hammered again for ten minutes.
+
+### 📊 The now-playing VU meter shows real output
+
+- The stereo VU bar under the track title now displays **what actually
+  leaves the speakers** (the same WASAPI loopback measurement the mixer
+  meters use) — for music on any engine and for live mic segments.
+- The old decorative animation has been removed: when nothing is audible,
+  the bars fall to zero.
+
+### ✅ Testing
+
+| Suite | Result |
+|---|---|
+| Multi-mic suite (quad mic, problem webcam ×4 slots, storms, PortAudio tripwire) | ✅ 13/13 (×5 consecutive runs) |
+| Pause-storm (60× pause/resume, pause→stop races, engine switches, thread/RSS hygiene) | ✅ all passed (×5 consecutive runs) |
+| Jingle stress | ✅ 41/41 |
+| Edge cases | ✅ 62/62 |
+| Soak **134,619 ops / 8 min** (40k songs, 24k jingles, 3,442 live-mic sessions incl. 1,721 dual) | ✅ 8/8 — **0 start failures**, RSS peak Δ+2.0 MB, threads return to baseline |
+
+### 📦 Installation notes
+
+- Installs over SP1/SP2/SP3 directly; settings and `.freq` queue files are
+  preserved.
+- If a microphone misbehaves, FreQ now skips it gracefully (status bar
+  message, queue continues) instead of crashing — and the queue moves on.
+
+### ✅ Testing
+
+| Suite | Result |
+|---|---|
+| Multi-mic suite (quad mic, problem webcam ×4 slots, storms, PortAudio tripwire) | ✅ 13/13 (×5 consecutive runs) |
+| Pause-storm (60× pause/resume, pause→stop races, engine switches, thread/RSS hygiene) | ✅ all passed (×5 consecutive runs) |
+| Jingle stress | ✅ 41/41 |
+| Edge cases | ✅ 62/62 |
+| Soak **134,619 ops / 8 min** (40k songs, 24k jingles, 3,442 live-mic sessions incl. 1,721 dual) | ✅ 8/8 — **0 start failures**, RSS peak Δ+2.0 MB, threads return to baseline |
+| Version comparison (v prefix, SP suffix, `_`/`-` tags, garbage input) | ✅ all cases |
+
+### 📦 Installation notes
+
+- Installs over SP1/SP2 directly; settings and `.freq` queue files are
+  preserved.
+- If a microphone misbehaves, FreQ now skips it gracefully (status bar
+  message, queue continues) instead of crashing — and the queue moves on.
+
+---
+
+## FreQ 2.7.3 SP2 (Stable Pack 2) — 2026-09-23
+
+**SP2 is the real-time microphone release** — a live mic mixed straight into
+the programme the moment you speak (~20 ms, no record-then-play round trip),
+plus **Dual Mic** (two microphones in one segment) and fixes for the
+waveform-seek glitch that used to double the audio. Updates over SP1
+directly; all existing settings keep working.
+
+### 🎙 Real-time live microphone (Emergency Mic actually works now)
+
+- The Emergency Mic button previously only ducked the volume — no mic was
+  ever opened. It now opens a **live microphone mixed into the same device
+  buffers as the music**: real-time (~20 ms), works even when the music is
+  stopped, with automatic music ducking and a sticky on/off toggle.
+- Mic segments play **live by default** — the announcer is heard as they
+  speak, with the progress bar following the clip. Record-first-play-later
+  remains only as a fallback.
+
+### 🎚 Dual Mic segments
+
+- A mic segment can open **two microphones at once** (interview / two-DJ
+  setup). Each mic is its own capture + buffer in the engine — one failing
+  never affects the other; music ducks exactly once, and the queue
+  continues cleanly when the clip ends.
+
+### 🔀 Fixed: doubled audio when clicking the waveform
+
+- Seeking used to **rebuild the whole audio engine** even though the C++
+  engine always had a native seek — now every seek is engine-level and
+  atomically flushes stale audio from the buffers.
+- Fixed a real overlap bug: seeking near the start fell back to
+  `pygame` playback **on top of** the running WASAPI engine — two layers
+  of the same song. Fixed.
+- A pending crossfade is now properly cancelled when you seek.
+
+### ✅ Testing
+
+| Suite | Result |
+|---|---|
+| Jingle stress + new seek/mic cases (engine-level seek storm ×300, waveform storm ×60, mic start/stop ×30) | ✅ 41/41 |
+| Edge cases | ✅ 62/62 |
+| Soak 20,000 ops (incl. 492 live-mic sessions, 226 dual) | ✅ 8/8 — RSS stable, threads at baseline, 0 start failures |
+
+---
+
+## FreQ 2.7.2 SP1 (Stable Pack 1) — 2026-09-23
+
+**SP1 is a stability package** — no new features, no UI changes, no settings
+migration. Install it over any previous version and keep working.
+
+### 🛠 Crashes fixed
+
+- **Fixed the crash when playing jingles in any way** (manual bell, every-N
+  songs automation, ad breaks, stopping mid-jingle, rapid re-presses).
+  Root cause: the native audio module left a zombie decode thread behind on
+  rapid start/stop, which read freed decoder state and crashed the process
+  with a divide-by-zero (`0xC0000094`) inside the resampler.
+- **Fixed 48 kHz files playing silent + heap corruption** (`0xC0000374`
+  when re-pressing quickly): the decoder was initialised on the stack and
+  then *copied* into a heap block — internal pointers kept referencing the
+  dead stack frame, corrupting neighbouring heap data.
+- **Fixed the assertion dialog freezing the app**: release builds now ship
+  with assertions disabled (NDEBUG), every division in the audio path is
+  guarded, and the Python side gained a recovery ladder that migrates
+  playback when a device disappears.
+
+### 🩹 Memory leaks fixed
+
+- The native capture ring buffer leaked **~960 KB every time** a recorder
+  or loopback closed (measured: 66 cycles = +63 MB). Fixed with proper C++
+  member destruction — now ~1 KB per cycle.
+- A new native streaming module (`native_audio_stream`) is included and
+  verified.
+
+### ✅ Testing
+
+| Suite | Result |
+|---|---|
+| Jingle stress incl. mixed-rate storm (44.1k/48k/22.05k/96k) | ✅ 29/29 |
+| Edge cases | ✅ 62/62 |
+| Soak 3,000 ops (75 engine recreations, 122 capture cycles) | ✅ 6/6 — RSS 57.8→57.1 MB, peak Δ+0.1 MB |
+| Soak **20,000 ops** (5,982 songs, 3,599 jingles, 496 engine recreations, 879 captures) | ✅ 6/6 — RSS flat, peak Δ+0.4 MB, starts 20,000/20,000 |
+
+### 📦 Installation notes
+
+- Install directly over the current version — no uninstall needed, settings
+  and queue files are untouched.
+- If anything still crashes, send the entry from Windows Event Viewer
+  (Windows Logs → Application → "Application Error") and it gets fixed.

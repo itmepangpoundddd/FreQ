@@ -1,0 +1,9 @@
+customtkinter>=5.2.0
+flask>=3.0.0
+yt-dlp>=2024.1.0
+sounddevice>=0.4.6
+Pillow>=10.0.0
+pygame>=2.5.0
+tkinterdnd2>=0.3.0
+mutagen>=1.47.0
+aiortc>=1.13.0
