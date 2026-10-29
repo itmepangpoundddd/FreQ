@@ -1,0 +1,672 @@
+pygame-ce 2.5.8 (SDL 2.32.10, Python 3.14.6)
+  ✅  Added: Song 0 — Tester
+  ✅  Added: Song 1 — Tester
+  ✅  Added: Song 2 — Tester
+  ✅  Added: Song 3 — Tester
+  ✅  Added: Song 4 — Tester
+  ✅  Added: Song 5 — Tester
+  ✅  Added: Song 6 — Tester
+  ✅  Added: Song 7 — Tester
+  ✅  Added: Song 8 — Tester
+  ✅  Added: Song 9 — Tester
+  ✅  Added: Song 10 — Tester
+  ✅  Added: Song 11 — Tester
+  ✅  Added: Song 12 — Tester
+  ✅  Added: Song 13 — Tester
+  ✅  Added: Song 14 — Tester
+  ✅  Added: Song 15 — Tester
+  ✅  Added: Song 16 — Tester
+  ✅  Added: Song 17 — Tester
+  ✅  Added: Song 18 — Tester
+  ✅  Added: Song 19 — Tester
+  ✅  Added: Song 20 — Tester
+  ✅  Added: Song 21 — Tester
+  ✅  Added: Song 22 — Tester
+  ✅  Added: Song 23 — Tester
+  ✅  Added: Song 24 — Tester
+  ✅  Added: Song 25 — Tester
+  ✅  Added: Song 26 — Tester
+  ✅  Added: Song 27 — Tester
+  ✅  Added: Song 28 — Tester
+  ✅  Added: Song 29 — Tester
+  ✅  Inserted at position 25: Song 100 — Tester
+  ✅  Inserted at position 25: Song 101 — Tester
+  ✅  Inserted at position 11: Song 102 — Tester
+  ✅  Inserted at position 27: Song 103 — Tester
+  ✅  Inserted at position 30: Song 104 — Tester
+  ✅  Inserted at position 20: Song 105 — Tester
+  ✅  Inserted at position 36: Song 106 — Tester
+  ✅  Inserted at position 34: Song 107 — Tester
+  ✅  Inserted at position 36: Song 108 — Tester
+  ✅  Inserted at position 29: Song 109 — Tester
+  ✅  Inserted at position 32: Song 110 — Tester
+  ✅  Inserted at position 40: Song 111 — Tester
+  ✅  Inserted at position 16: Song 112 — Tester
+  ✅  Inserted at position 11: Song 113 — Tester
+  ✅  Inserted at position 35: Song 114 — Tester
+  ✅  Inserted at position 21: Song 115 — Tester
+  ✅  Inserted at position 19: Song 116 — Tester
+  ✅  Inserted at position 32: Song 117 — Tester
+  ✅  Inserted at position 48: Song 118 — Tester
+  ✅  Inserted at position 19: Song 119 — Tester
+  ✅  Inserted at position 44: Song 120 — Tester
+  ✅  Inserted at position 15: Song 121 — Tester
+  ✅  Inserted at position 36: Song 122 — Tester
+  ✅  Inserted at position 34: Song 123 — Tester
+  ✅  Inserted at position 12: Song 124 — Tester
+  ✅  Inserted at position 51: Song 125 — Tester
+  ✅  Inserted at position 48: Song 126 — Tester
+  ✅  Inserted at position 16: Song 127 — Tester
+  ✅  Inserted at position 37: Song 128 — Tester
+  ✅  Inserted at position 45: Song 129 — Tester
+  ✅  Inserted at position 40: Song 130 — Tester
+  ✅  Inserted at position 53: Song 131 — Tester
+  ✅  Inserted at position 36: Song 132 — Tester
+  ✅  Inserted at position 57: Song 133 — Tester
+  ✅  Inserted at position 8: Song 134 — Tester
+  ✅  Inserted at position 34: Song 135 — Tester
+  ✅  Inserted at position 9: Song 136 — Tester
+  ✅  Inserted at position 58: Song 137 — Tester
+  ✅  Inserted at position 64: Song 138 — Tester
+  ✅  Inserted at position 50: Song 139 — Tester
+  ✅  Inserted at position 33: Song 140 — Tester
+  ✅  Inserted at position 21: Song 141 — Tester
+  ✅  Inserted at position 17: Song 142 — Tester
+  ✅  Inserted at position 39: Song 143 — Tester
+  ✅  Inserted at position 25: Song 144 — Tester
+  ✅  Inserted at position 9: Song 145 — Tester
+  ✅  Inserted at position 75: Song 146 — Tester
+  ✅  Inserted at position 44: Song 147 — Tester
+  ✅  Inserted at position 65: Song 148 — Tester
+  ✅  Inserted at position 36: Song 149 — Tester
+  ✅  Inserted at position 45: Song 150 — Tester
+  ✅  Inserted at position 70: Song 151 — Tester
+  ✅  Inserted at position 64: Song 152 — Tester
+  ✅  Inserted at position 37: Song 153 — Tester
+  ✅  Inserted at position 71: Song 154 — Tester
+  ✅  Inserted at position 11: Song 155 — Tester
+  ✅  Inserted at position 84: Song 156 — Tester
+  ✅  Inserted at position 72: Song 157 — Tester
+  ✅  Inserted at position 85: Song 158 — Tester
+  ✅  Inserted at position 36: Song 159 — Tester
+  ✅ plain queue: every insert lands after the row on air — min=8
+  ✅ plain queue: the row on air is still the same song — current=5
+  ✅ plain queue: rows that already aired are untouched
+  ✅ plain queue: every song is in the queue exactly once
+  ✅ plain queue: inserts land inside the list, not just at the end — 58/60 landed before the tail
+  ✅ plain queue: the landing positions are not monotonic — first 12: [25, 25, 11, 27, 30, 20, 36, 34, 36, 29, 32, 40]
+  ✅  Inserted at position 0: Song 0 — Tester
+  ✅  Inserted at position 0: Song 1 — Tester
+  ✅  Inserted at position 1: Song 2 — Tester
+  ✅  Inserted at position 0: Song 3 — Tester
+  ✅  Inserted at position 0: Song 4 — Tester
+  ✅ plain queue: a batch spreads out instead of arriving as one block
+  💾  Saved → radio_queue.freq
+  ✅ the Add tab ships the 🎲 switch
+  ✅ OFF by default — the queue people already had is unchanged
+  ✅  Added: Song 0 — Tester
+  ✅  Added: Song 1 — Tester
+  ✅  Added: Song 2 — Tester
+  ✅ switch OFF → songs are appended in order — positions=[0, 1, 2]
+  ✅ clicking the switch turns the mode on
+  ✅  Inserted at position 0: Song 3 — Tester
+  ✅ the helper returns the slot the song really landed in — pos=0 of 4 rows
+  ✅ nothing on air → a new song may land anywhere (incl. the top) — landed at #1
+  ✅  Added: Song 0 — Tester
+  ✅  Added: Song 1 — Tester
+  ✅  Added: Song 2 — Tester
+  ✅  Added: Song 3 — Tester
+  ✅  Added: Song 4 — Tester
+  ✅  Added: Song 5 — Tester
+  ✅  Added: Song 6 — Tester
+  ✅  Added: Song 7 — Tester
+  ✅  Added: Song 8 — Tester
+  ✅  Added: Song 9 — Tester
+  ✅  Added: Song 10 — Tester
+  ✅  Added: Song 11 — Tester
+  ✅  Added: Song 12 — Tester
+  ✅  Added: Song 13 — Tester
+  ✅  Added: Song 14 — Tester
+  ✅  Added: Song 15 — Tester
+  ✅  Added: Song 16 — Tester
+  ✅  Added: Song 17 — Tester
+  ✅  Added: Song 18 — Tester
+  ✅  Added: Song 19 — Tester
+  ✅  Added: Song 20 — Tester
+  ✅  Added: Song 21 — Tester
+  ✅  Added: Song 22 — Tester
+  ✅  Added: Song 23 — Tester
+  ✅  Added: Song 24 — Tester
+  ✅  Added: Song 25 — Tester
+  ✅  Added: Song 26 — Tester
+  ✅  Added: Song 27 — Tester
+  ✅  Added: Song 28 — Tester
+  ✅  Added: Song 29 — Tester
+  ✅  Added: Song 30 — Tester
+  ✅  Added: Song 31 — Tester
+  ✅  Added: Song 32 — Tester
+  ✅  Added: Song 33 — Tester
+  ✅  Added: Song 34 — Tester
+  ✅  Added: Song 35 — Tester
+  ✅  Added: Song 36 — Tester
+  ✅  Added: Song 37 — Tester
+  ✅  Added: Song 38 — Tester
+  ✅  Added: Song 39 — Tester
+  ✅  Added: Song 40 — Tester
+  ✅  Added: Song 41 — Tester
+  ✅  Added: Song 42 — Tester
+  ✅  Added: Song 43 — Tester
+  ✅  Added: Song 44 — Tester
+  ✅  Added: Song 45 — Tester
+  ✅  Added: Song 46 — Tester
+  ✅  Added: Song 47 — Tester
+  ✅  Added: Song 48 — Tester
+  ✅  Added: Song 49 — Tester
+  ✅  Added: Song 50 — Tester
+  ✅  Added: Song 51 — Tester
+  ✅  Added: Song 52 — Tester
+  ✅  Added: Song 53 — Tester
+  ✅  Added: Song 54 — Tester
+  ✅  Added: Song 55 — Tester
+  ✅  Added: Song 56 — Tester
+  ✅  Added: Song 57 — Tester
+  ✅  Added: Song 58 — Tester
+  ✅  Added: Song 59 — Tester
+  ✅  Added: Song 60 — Tester
+  ✅  Added: Song 61 — Tester
+  ✅  Added: Song 62 — Tester
+  ✅  Added: Song 63 — Tester
+  ✅  Added: Song 64 — Tester
+  ✅  Added: Song 65 — Tester
+  ✅  Added: Song 66 — Tester
+  ✅  Added: Song 67 — Tester
+  ✅  Added: Song 68 — Tester
+  ✅  Added: Song 69 — Tester
+  ✅  Added: Song 70 — Tester
+  ✅  Added: Song 71 — Tester
+  ✅  Added: Song 72 — Tester
+  ✅  Added: Song 73 — Tester
+  ✅  Added: Song 74 — Tester
+  ✅  Added: Song 75 — Tester
+  ✅  Added: Song 76 — Tester
+  ✅  Added: Song 77 — Tester
+  ✅  Added: Song 78 — Tester
+  ✅  Added: Song 79 — Tester
+  ✅  Added: Song 80 — Tester
+  ✅  Added: Song 81 — Tester
+  ✅  Added: Song 82 — Tester
+  ✅  Added: Song 83 — Tester
+  ✅  Added: Song 84 — Tester
+  ✅  Added: Song 85 — Tester
+  ✅  Added: Song 86 — Tester
+  ✅  Added: Song 87 — Tester
+  ✅  Added: Song 88 — Tester
+  ✅  Added: Song 89 — Tester
+  ✅  Added: Song 90 — Tester
+  ✅  Added: Song 91 — Tester
+  ✅  Added: Song 92 — Tester
+  ✅  Added: Song 93 — Tester
+  ✅  Added: Song 94 — Tester
+  ✅  Added: Song 95 — Tester
+  ✅  Added: Song 96 — Tester
+  ✅  Added: Song 97 — Tester
+  ✅  Added: Song 98 — Tester
+  ✅  Added: Song 99 — Tester
+  ✅  Added: Song 100 — Tester
+  ✅  Added: Song 101 — Tester
+  ✅  Added: Song 102 — Tester
+  ✅  Added: Song 103 — Tester
+  ✅  Added: Song 104 — Tester
+  ✅  Added: Song 105 — Tester
+  ✅  Added: Song 106 — Tester
+  ✅  Added: Song 107 — Tester
+  ✅  Added: Song 108 — Tester
+  ✅  Added: Song 109 — Tester
+  ✅  Added: Song 110 — Tester
+  ✅  Added: Song 111 — Tester
+  ✅  Added: Song 112 — Tester
+  ✅  Added: Song 113 — Tester
+  ✅  Added: Song 114 — Tester
+  ✅  Added: Song 115 — Tester
+  ✅  Added: Song 116 — Tester
+  ✅  Added: Song 117 — Tester
+  ✅  Added: Song 118 — Tester
+  ✅  Added: Song 119 — Tester
+  ✅  Added: Song 120 — Tester
+  ✅  Added: Song 121 — Tester
+  ✅  Added: Song 122 — Tester
+  ✅  Added: Song 123 — Tester
+  ✅  Added: Song 124 — Tester
+  ✅  Added: Song 125 — Tester
+  ✅  Added: Song 126 — Tester
+  ✅  Added: Song 127 — Tester
+  ✅  Added: Song 128 — Tester
+  ✅  Added: Song 129 — Tester
+  ✅  Added: Song 130 — Tester
+  ✅  Added: Song 131 — Tester
+  ✅  Added: Song 132 — Tester
+  ✅  Added: Song 133 — Tester
+  ✅  Added: Song 134 — Tester
+  ✅  Added: Song 135 — Tester
+  ✅  Added: Song 136 — Tester
+  ✅  Added: Song 137 — Tester
+  ✅  Added: Song 138 — Tester
+  ✅  Added: Song 139 — Tester
+  ✅  Added: Song 140 — Tester
+  ✅  Added: Song 141 — Tester
+  ✅  Added: Song 142 — Tester
+  ✅  Added: Song 143 — Tester
+  ✅  Added: Song 144 — Tester
+  ✅  Added: Song 145 — Tester
+  ✅  Added: Song 146 — Tester
+  ✅  Added: Song 147 — Tester
+  ✅  Added: Song 148 — Tester
+  ✅  Added: Song 149 — Tester
+  ✅  Added: Song 150 — Tester
+  ✅  Added: Song 151 — Tester
+  ✅  Added: Song 152 — Tester
+  ✅  Added: Song 153 — Tester
+  ✅  Added: Song 154 — Tester
+  ✅  Added: Song 155 — Tester
+  ✅  Added: Song 156 — Tester
+  ✅  Added: Song 157 — Tester
+  ✅  Added: Song 158 — Tester
+  ✅  Added: Song 159 — Tester
+  ✅  Added: Song 160 — Tester
+  ✅  Added: Song 161 — Tester
+  ✅  Added: Song 162 — Tester
+  ✅  Added: Song 163 — Tester
+  ✅  Added: Song 164 — Tester
+  ✅  Added: Song 165 — Tester
+  ✅  Added: Song 166 — Tester
+  ✅  Added: Song 167 — Tester
+  ✅  Added: Song 168 — Tester
+  ✅  Added: Song 169 — Tester
+  ✅  Added: Song 170 — Tester
+  ✅  Added: Song 171 — Tester
+  ✅  Added: Song 172 — Tester
+  ✅  Added: Song 173 — Tester
+  ✅  Added: Song 174 — Tester
+  ✅  Added: Song 175 — Tester
+  ✅  Added: Song 176 — Tester
+  ✅  Added: Song 177 — Tester
+  ✅  Added: Song 178 — Tester
+  ✅  Added: Song 179 — Tester
+  ✅  Added: Song 180 — Tester
+  ✅  Added: Song 181 — Tester
+  ✅  Added: Song 182 — Tester
+  ✅  Added: Song 183 — Tester
+  ✅  Added: Song 184 — Tester
+  ✅  Added: Song 185 — Tester
+  ✅  Added: Song 186 — Tester
+  ✅  Added: Song 187 — Tester
+  ✅  Added: Song 188 — Tester
+  ✅  Added: Song 189 — Tester
+  ✅  Added: Song 190 — Tester
+  ✅  Added: Song 191 — Tester
+  ✅  Added: Song 192 — Tester
+  ✅  Added: Song 193 — Tester
+  ✅  Added: Song 194 — Tester
+  ✅  Added: Song 195 — Tester
+  ✅  Added: Song 196 — Tester
+  ✅  Added: Song 197 — Tester
+  ✅  Added: Song 198 — Tester
+  ✅  Added: Song 199 — Tester
+  ✅  Inserted at position 49: Song 500 — Tester
+  ✅  Inserted at position 161: Song 501 — Tester
+  ✅  Inserted at position 146: Song 502 — Tester
+  ✅  Inserted at position 192: Song 503 — Tester
+  ✅  Inserted at position 88: Song 504 — Tester
+  ✅  Inserted at position 118: Song 505 — Tester
+  ✅  Inserted at position 88: Song 506 — Tester
+  ✅  Inserted at position 196: Song 507 — Tester
+  ✅  Inserted at position 111: Song 508 — Tester
+  ✅  Inserted at position 136: Song 509 — Tester
+  ✅  Inserted at position 149: Song 510 — Tester
+  ✅  Inserted at position 176: Song 511 — Tester
+  ✅  Inserted at position 177: Song 512 — Tester
+  ✅  Inserted at position 113: Song 513 — Tester
+  ✅  Inserted at position 121: Song 514 — Tester
+  ✅  Inserted at position 147: Song 515 — Tester
+  ✅  Inserted at position 55: Song 516 — Tester
+  ✅  Inserted at position 157: Song 517 — Tester
+  ✅  Inserted at position 75: Song 518 — Tester
+  ✅  Inserted at position 54: Song 519 — Tester
+  ✅  Inserted at position 197: Song 520 — Tester
+  ✅  Inserted at position 169: Song 521 — Tester
+  ✅  Inserted at position 90: Song 522 — Tester
+  ✅  Inserted at position 150: Song 523 — Tester
+  ✅  Inserted at position 193: Song 524 — Tester
+  ✅  Inserted at position 210: Song 525 — Tester
+  ✅  Inserted at position 74: Song 526 — Tester
+  ✅  Inserted at position 66: Song 527 — Tester
+  ✅  Inserted at position 82: Song 528 — Tester
+  ✅  Inserted at position 142: Song 529 — Tester
+  ✅  Inserted at position 146: Song 530 — Tester
+  ✅  Inserted at position 177: Song 531 — Tester
+  ✅  Inserted at position 66: Song 532 — Tester
+  ✅  Inserted at position 203: Song 533 — Tester
+  ✅  Inserted at position 167: Song 534 — Tester
+  ✅  Inserted at position 43: Song 535 — Tester
+  ✅  Inserted at position 142: Song 536 — Tester
+  ✅  Inserted at position 144: Song 537 — Tester
+  ✅  Inserted at position 100: Song 538 — Tester
+  ✅  Inserted at position 87: Song 539 — Tester
+  ✅  Inserted at position 116: Song 540 — Tester
+  ✅  Inserted at position 71: Song 541 — Tester
+  ✅  Inserted at position 75: Song 542 — Tester
+  ✅  Inserted at position 90: Song 543 — Tester
+  ✅  Inserted at position 128: Song 544 — Tester
+  ✅  Inserted at position 102: Song 545 — Tester
+  ✅  Inserted at position 108: Song 546 — Tester
+  ✅  Inserted at position 138: Song 547 — Tester
+  ✅  Inserted at position 55: Song 548 — Tester
+  ✅  Inserted at position 182: Song 549 — Tester
+  ✅  Inserted at position 124: Song 550 — Tester
+  ✅  Inserted at position 92: Song 551 — Tester
+  ✅  Inserted at position 235: Song 552 — Tester
+  ✅  Inserted at position 65: Song 553 — Tester
+  ✅  Inserted at position 130: Song 554 — Tester
+  ✅  Inserted at position 176: Song 555 — Tester
+  ✅  Inserted at position 78: Song 556 — Tester
+  ✅  Inserted at position 195: Song 557 — Tester
+  ✅  Inserted at position 143: Song 558 — Tester
+  ✅  Inserted at position 88: Song 559 — Tester
+  ✅  Inserted at position 218: Song 560 — Tester
+  ✅  Inserted at position 65: Song 561 — Tester
+  ✅  Inserted at position 94: Song 562 — Tester
+  ✅  Inserted at position 174: Song 563 — Tester
+  ✅  Inserted at position 111: Song 564 — Tester
+  ✅  Inserted at position 148: Song 565 — Tester
+  ✅  Inserted at position 183: Song 566 — Tester
+  ✅  Inserted at position 239: Song 567 — Tester
+  ✅  Inserted at position 44: Song 568 — Tester
+  ✅  Inserted at position 83: Song 569 — Tester
+  ✅  Inserted at position 118: Song 570 — Tester
+  ✅  Inserted at position 119: Song 571 — Tester
+  ✅  Inserted at position 237: Song 572 — Tester
+  ✅  Inserted at position 71: Song 573 — Tester
+  ✅  Inserted at position 133: Song 574 — Tester
+  ✅  Inserted at position 207: Song 575 — Tester
+  ✅  Inserted at position 127: Song 576 — Tester
+  ✅  Inserted at position 94: Song 577 — Tester
+  ✅  Inserted at position 71: Song 578 — Tester
+  ✅  Inserted at position 200: Song 579 — Tester
+  ✅  Inserted at position 71: Song 580 — Tester
+  ✅  Inserted at position 230: Song 581 — Tester
+  ✅  Inserted at position 243: Song 582 — Tester
+  ✅  Inserted at position 185: Song 583 — Tester
+  ✅  Inserted at position 247: Song 584 — Tester
+  ✅  Inserted at position 84: Song 585 — Tester
+  ✅  Inserted at position 221: Song 586 — Tester
+  ✅  Inserted at position 127: Song 587 — Tester
+  ✅  Inserted at position 110: Song 588 — Tester
+  ✅  Inserted at position 199: Song 589 — Tester
+  ✅  Inserted at position 113: Song 590 — Tester
+  ✅  Inserted at position 272: Song 591 — Tester
+  ✅  Inserted at position 86: Song 592 — Tester
+  ✅  Inserted at position 233: Song 593 — Tester
+  ✅  Inserted at position 204: Song 594 — Tester
+  ✅  Inserted at position 245: Song 595 — Tester
+  ✅  Inserted at position 132: Song 596 — Tester
+  ✅  Inserted at position 171: Song 597 — Tester
+  ✅  Inserted at position 134: Song 598 — Tester
+  ✅  Inserted at position 111: Song 599 — Tester
+  ✅  Inserted at position 278: Song 600 — Tester
+  ✅  Inserted at position 54: Song 601 — Tester
+  ✅  Inserted at position 297: Song 602 — Tester
+  ✅  Inserted at position 172: Song 603 — Tester
+  ✅  Inserted at position 112: Song 604 — Tester
+  ✅  Inserted at position 147: Song 605 — Tester
+  ✅  Inserted at position 229: Song 606 — Tester
+  ✅  Inserted at position 268: Song 607 — Tester
+  ✅  Inserted at position 53: Song 608 — Tester
+  ✅  Inserted at position 118: Song 609 — Tester
+  ✅  Inserted at position 291: Song 610 — Tester
+  ✅  Inserted at position 88: Song 611 — Tester
+  ✅  Inserted at position 250: Song 612 — Tester
+  ✅  Inserted at position 89: Song 613 — Tester
+  ✅  Inserted at position 266: Song 614 — Tester
+  ✅  Inserted at position 157: Song 615 — Tester
+  ✅  Inserted at position 136: Song 616 — Tester
+  ✅  Inserted at position 130: Song 617 — Tester
+  ✅  Inserted at position 71: Song 618 — Tester
+  ✅  Inserted at position 171: Song 619 — Tester
+  ✅  Inserted at position 99: Song 620 — Tester
+  ✅  Inserted at position 316: Song 621 — Tester
+  ✅  Inserted at position 251: Song 622 — Tester
+  ✅  Inserted at position 321: Song 623 — Tester
+  ✅  Inserted at position 180: Song 624 — Tester
+  ✅  Inserted at position 292: Song 625 — Tester
+  ✅  Inserted at position 221: Song 626 — Tester
+  ✅  Inserted at position 66: Song 627 — Tester
+  ✅  Inserted at position 153: Song 628 — Tester
+  ✅  Inserted at position 50: Song 629 — Tester
+  ✅  Inserted at position 178: Song 630 — Tester
+  ✅  Inserted at position 264: Song 631 — Tester
+  ✅  Inserted at position 147: Song 632 — Tester
+  ✅  Inserted at position 257: Song 633 — Tester
+  ✅  Inserted at position 292: Song 634 — Tester
+  ✅  Inserted at position 173: Song 635 — Tester
+  ✅  Inserted at position 50: Song 636 — Tester
+  ✅  Inserted at position 69: Song 637 — Tester
+  ✅  Inserted at position 299: Song 638 — Tester
+  ✅  Inserted at position 254: Song 639 — Tester
+  ✅  Inserted at position 168: Song 640 — Tester
+  ✅  Inserted at position 258: Song 641 — Tester
+  ✅  Inserted at position 189: Song 642 — Tester
+  ✅  Inserted at position 305: Song 643 — Tester
+  ✅  Inserted at position 296: Song 644 — Tester
+  ✅  Inserted at position 71: Song 645 — Tester
+  ✅  Inserted at position 260: Song 646 — Tester
+  ✅  Inserted at position 249: Song 647 — Tester
+  ✅  Inserted at position 91: Song 648 — Tester
+  ✅  Inserted at position 57: Song 649 — Tester
+  ✅  Inserted at position 238: Song 650 — Tester
+  ✅  Inserted at position 324: Song 651 — Tester
+  ✅  Inserted at position 59: Song 652 — Tester
+  ✅  Inserted at position 341: Song 653 — Tester
+  ✅  Inserted at position 223: Song 654 — Tester
+  ✅  Inserted at position 60: Song 655 — Tester
+  ✅  Inserted at position 211: Song 656 — Tester
+  ✅  Inserted at position 271: Song 657 — Tester
+  ✅  Inserted at position 81: Song 658 — Tester
+  ✅  Inserted at position 156: Song 659 — Tester
+  ✅  Inserted at position 318: Song 660 — Tester
+  ✅  Inserted at position 197: Song 661 — Tester
+  ✅  Inserted at position 120: Song 662 — Tester
+  ✅  Inserted at position 291: Song 663 — Tester
+  ✅  Inserted at position 101: Song 664 — Tester
+  ✅  Inserted at position 163: Song 665 — Tester
+  ✅  Inserted at position 323: Song 666 — Tester
+  ✅  Inserted at position 111: Song 667 — Tester
+  ✅  Inserted at position 225: Song 668 — Tester
+  ✅  Inserted at position 182: Song 669 — Tester
+  ✅  Inserted at position 145: Song 670 — Tester
+  ✅  Inserted at position 95: Song 671 — Tester
+  ✅  Inserted at position 241: Song 672 — Tester
+  ✅  Inserted at position 327: Song 673 — Tester
+  ✅  Inserted at position 70: Song 674 — Tester
+  ✅  Inserted at position 306: Song 675 — Tester
+  ✅  Inserted at position 329: Song 676 — Tester
+  ✅  Inserted at position 51: Song 677 — Tester
+  ✅  Inserted at position 215: Song 678 — Tester
+  ✅  Inserted at position 293: Song 679 — Tester
+  ✅  Inserted at position 105: Song 680 — Tester
+  ✅  Inserted at position 48: Song 681 — Tester
+  ✅  Inserted at position 139: Song 682 — Tester
+  ✅  Inserted at position 238: Song 683 — Tester
+  ✅  Inserted at position 241: Song 684 — Tester
+  ✅  Inserted at position 118: Song 685 — Tester
+  ✅  Inserted at position 217: Song 686 — Tester
+  ✅  Inserted at position 99: Song 687 — Tester
+  ✅  Inserted at position 323: Song 688 — Tester
+  ✅  Inserted at position 158: Song 689 — Tester
+  ✅  Inserted at position 223: Song 690 — Tester
+  ✅  Inserted at position 301: Song 691 — Tester
+  ✅  Inserted at position 169: Song 692 — Tester
+  ✅  Inserted at position 352: Song 693 — Tester
+  ✅  Inserted at position 74: Song 694 — Tester
+  ✅  Inserted at position 235: Song 695 — Tester
+  ✅  Inserted at position 176: Song 696 — Tester
+  ✅  Inserted at position 340: Song 697 — Tester
+  ✅  Inserted at position 54: Song 698 — Tester
+  ✅  Inserted at position 265: Song 699 — Tester
+  ✅  Inserted at position 281: Song 700 — Tester
+  ✅  Inserted at position 58: Song 701 — Tester
+  ✅  Inserted at position 235: Song 702 — Tester
+  ✅  Inserted at position 210: Song 703 — Tester
+  ✅  Inserted at position 263: Song 704 — Tester
+  ✅  Inserted at position 188: Song 705 — Tester
+  ✅  Inserted at position 220: Song 706 — Tester
+  ✅  Inserted at position 103: Song 707 — Tester
+  ✅  Inserted at position 226: Song 708 — Tester
+  ✅  Inserted at position 407: Song 709 — Tester
+  ✅  Inserted at position 67: Song 710 — Tester
+  ✅  Inserted at position 264: Song 711 — Tester
+  ✅  Inserted at position 272: Song 712 — Tester
+  ✅  Inserted at position 157: Song 713 — Tester
+  ✅  Inserted at position 256: Song 714 — Tester
+  ✅  Inserted at position 214: Song 715 — Tester
+  ✅  Inserted at position 136: Song 716 — Tester
+  ✅  Inserted at position 256: Song 717 — Tester
+  ✅  Inserted at position 183: Song 718 — Tester
+  ✅  Inserted at position 404: Song 719 — Tester
+  ✅  Inserted at position 139: Song 720 — Tester
+  ✅  Inserted at position 136: Song 721 — Tester
+  ✅  Inserted at position 243: Song 722 — Tester
+  ✅  Inserted at position 390: Song 723 — Tester
+  ✅  Inserted at position 158: Song 724 — Tester
+  ✅  Inserted at position 198: Song 725 — Tester
+  ✅  Inserted at position 60: Song 726 — Tester
+  ✅  Inserted at position 367: Song 727 — Tester
+  ✅  Inserted at position 344: Song 728 — Tester
+  ✅  Inserted at position 162: Song 729 — Tester
+  ✅  Inserted at position 139: Song 730 — Tester
+  ✅  Inserted at position 93: Song 731 — Tester
+  ✅  Inserted at position 333: Song 732 — Tester
+  ✅  Inserted at position 142: Song 733 — Tester
+  ✅  Inserted at position 380: Song 734 — Tester
+  ✅  Inserted at position 223: Song 735 — Tester
+  ✅  Inserted at position 226: Song 736 — Tester
+  ✅  Inserted at position 285: Song 737 — Tester
+  ✅  Inserted at position 69: Song 738 — Tester
+  ✅  Inserted at position 132: Song 739 — Tester
+  ✅  Inserted at position 304: Song 740 — Tester
+  ✅  Inserted at position 395: Song 741 — Tester
+  ✅  Inserted at position 401: Song 742 — Tester
+  ✅  Inserted at position 269: Song 743 — Tester
+  ✅  Inserted at position 136: Song 744 — Tester
+  ✅  Inserted at position 286: Song 745 — Tester
+  ✅  Inserted at position 400: Song 746 — Tester
+  ✅  Inserted at position 423: Song 747 — Tester
+  ✅  Inserted at position 97: Song 748 — Tester
+  ✅  Inserted at position 56: Song 749 — Tester
+  ✅  Inserted at position 58: Song 750 — Tester
+  ✅  Inserted at position 80: Song 751 — Tester
+  ✅  Inserted at position 340: Song 752 — Tester
+  ✅  Inserted at position 324: Song 753 — Tester
+  ✅  Inserted at position 209: Song 754 — Tester
+  ✅  Inserted at position 224: Song 755 — Tester
+  ✅  Inserted at position 199: Song 756 — Tester
+  ✅  Inserted at position 302: Song 757 — Tester
+  ✅  Inserted at position 182: Song 758 — Tester
+  ✅  Inserted at position 60: Song 759 — Tester
+  ✅  Inserted at position 254: Song 760 — Tester
+  ✅  Inserted at position 46: Song 761 — Tester
+  ✅  Inserted at position 111: Song 762 — Tester
+  ✅  Inserted at position 252: Song 763 — Tester
+  ✅  Inserted at position 432: Song 764 — Tester
+  ✅  Inserted at position 403: Song 765 — Tester
+  ✅  Inserted at position 117: Song 766 — Tester
+  ✅  Inserted at position 303: Song 767 — Tester
+  ✅  Inserted at position 186: Song 768 — Tester
+  ✅  Inserted at position 187: Song 769 — Tester
+  ✅  Inserted at position 398: Song 770 — Tester
+  ✅  Inserted at position 52: Song 771 — Tester
+  ✅  Inserted at position 75: Song 772 — Tester
+  ✅  Inserted at position 376: Song 773 — Tester
+  ✅  Inserted at position 435: Song 774 — Tester
+  ✅  Inserted at position 97: Song 775 — Tester
+  ✅  Inserted at position 161: Song 776 — Tester
+  ✅  Inserted at position 283: Song 777 — Tester
+  ✅  Inserted at position 434: Song 778 — Tester
+  ✅  Inserted at position 368: Song 779 — Tester
+  ✅  Inserted at position 187: Song 780 — Tester
+  ✅  Inserted at position 177: Song 781 — Tester
+  ✅  Inserted at position 124: Song 782 — Tester
+  ✅  Inserted at position 194: Song 783 — Tester
+  ✅  Inserted at position 336: Song 784 — Tester
+  ✅  Inserted at position 339: Song 785 — Tester
+  ✅  Inserted at position 336: Song 786 — Tester
+  ✅  Inserted at position 408: Song 787 — Tester
+  ✅  Inserted at position 254: Song 788 — Tester
+  ✅  Inserted at position 158: Song 789 — Tester
+  ✅  Inserted at position 310: Song 790 — Tester
+  ✅  Inserted at position 339: Song 791 — Tester
+  ✅  Inserted at position 376: Song 792 — Tester
+  ✅  Inserted at position 134: Song 793 — Tester
+  ✅  Inserted at position 185: Song 794 — Tester
+  ✅  Inserted at position 242: Song 795 — Tester
+  ✅  Inserted at position 191: Song 796 — Tester
+  ✅  Inserted at position 161: Song 797 — Tester
+  ✅  Inserted at position 253: Song 798 — Tester
+  ✅  Inserted at position 116: Song 799 — Tester
+  ✅ no insert lands on or before the song on air — min=43 (must be ≥ 43)
+  ✅ the song on air is still the same song
+  ✅ rows that already aired are never displaced
+  ✅ every inserted song is in the queue exactly once
+  ✅ the queue really grew by the number of adds — 500 rows
+  ✅ inserts land inside the upcoming list, not only at its end — 300/300 landed before the tail
+  ✅ landing positions are not monotonic (really shuffled) — first 12: [49, 161, 146, 192, 88, 118, 88, 196, 111, 136, 149, 176]
+  ✅ positions cover a wide range instead of a few slots — 207 distinct slots
+  ✅ the next song after the one on air is still a real song — Song 535
+  ✅ the queue panel rebuilds with one row per song — view=500 queue=500
+  ✅  Added: Song 0 — Tester
+  ✅  Added: Song 1 — Tester
+  ✅  Added: Song 2 — Tester
+  ✅  Added: Song 3 — Tester
+  ✅  Added: Song 4 — Tester
+  ✅  Added: Song 5 — Tester
+  ✅  Added: Song 6 — Tester
+  ✅  Added: Song 7 — Tester
+  ✅  Added: Song 8 — Tester
+  ✅  Added: Song 9 — Tester
+  ✅  Added: Song 10 — Tester
+  ✅  Added: Song 11 — Tester
+  ✅  Added: Song 12 — Tester
+  ✅  Added: Song 13 — Tester
+  ✅  Added: Song 14 — Tester
+  ✅  Added: Song 15 — Tester
+  ✅  Added: Song 16 — Tester
+  ✅  Added: Song 17 — Tester
+  ✅  Added: Song 18 — Tester
+  ✅  Added: Song 19 — Tester
+  ✅  Added: Song 20 — Tester
+  ✅  Added: Song 21 — Tester
+  ✅  Added: Song 22 — Tester
+  ✅  Added: Song 23 — Tester
+  ✅  Added: Song 24 — Tester
+  ✅  Added: Song 25 — Tester
+  ✅  Added: Song 26 — Tester
+  ✅  Added: Song 27 — Tester
+  ✅  Added: Song 28 — Tester
+  ✅  Added: Song 29 — Tester
+  ✅  Inserted at position 18: Song 900 — Tester
+  ✅  Inserted at position 20: Song 901 — Tester
+  ✅  Inserted at position 14: Song 902 — Tester
+  ✅  Inserted at position 12: Song 903 — Tester
+  ✅  Inserted at position 31: Song 904 — Tester
+  ✅ the playlist worker adds all 5 imported songs — queue=35 (want 35)
+  ✅ the worker honours the 🎲 switch (no Tk call off-thread)
+  ✅ the worker's inserts respect the song on air too — slots=[20, 22, 15, 12, 31]
+  ✅ clicking the switch again turns the mode off
+  ✅  Added: Song 999 — Tester
+  ✅ switch OFF → the next song goes to the end again — pos=35 of 36 rows
+  ✅ appending is still invisible to the row on air
+  ✅  Inserted at position 0: Song 1 — Tester
+  ✅  Inserted at position 0: Song 2 — Tester
+  ✅ an empty queue accepts a random insert at slot 0 — ['Song 2', 'Song 1']
+  ✅ contained UI errors were never needed — contained=0
+
+31/31 passed

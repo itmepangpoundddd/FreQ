@@ -1,0 +1,43 @@
+  ✔ gui.py parsed as a local module graph
+
+— G1. Every local import in gui.py is actually touched by code —
+    74 local name(s) imported, 8 with no code use
+      · CustomTitleBar       from titlebar           line    75 — baselined
+      · EditResult           from features           line    81 — baselined
+      · FONT_SIZES           from theme              line    96 — baselined
+      · PlaybackModes        from features           line    81 — baselined
+      · ScheduleEvent        from scheduler          line    71 — baselined
+      · SongStatus           from radio_manager      line    42 — baselined
+      · UpdateInfo           from update_checker     line    76 — baselined (annotation-only)
+      · cached_icon          from icons              line    56 — baselined
+  ✔ G1 unused imports: no NEW unwired item
+  ✔ G1 unused imports: baseline not stale (paid-off entries removed)
+  ✔ every annotation-only import is declared as such
+  ✔ names declared annotation-only really are annotation-only
+
+— G2. Every app attribute the GUI smokes assert on exists in gui.py —
+  ✔ GUI smokes were found and scanned
+    scanned 13 smoke(s): _smoke_asrun_1020.py, _smoke_dual_0927.py, _smoke_end_modes_1021.py, _smoke_freq_roundtrip_1017.py, _smoke_heal_0928.py, _smoke_playlist_1020.py, _smoke_queue_nav_1018.py, _smoke_queue_stability_1018.py, _smoke_select_1017.py, _smoke_settings_persist_1017.py, _smoke_split_0928.py, _smoke_wheel_1017.py, test_soak_ui_1026.py
+      · app._aircheck_note_track     wanted by _smoke_split_0928.py:175, _smoke_split_0928.py:187 — baselined
+      · app._aircheck_tracklog       wanted by _smoke_split_0928.py:176, _smoke_split_0928.py:160, _smoke_split_0928.py:185 — baselined
+      · app._on_sentinel_mode_change wanted by _smoke_heal_0928.py:165, _smoke_heal_0928.py:177 — baselined
+      · app.aircheck_split_var       wanted by _smoke_split_0928.py:201, _smoke_split_0928.py:205, _smoke_split_0928.py:168 — baselined
+      · app.sentinel_heal            wanted by _smoke_heal_0928.py:162, _smoke_heal_0928.py:167, _smoke_heal_0928.py:175 — baselined
+      · app.sentinel_heal_mode_var   wanted by _smoke_heal_0928.py:164, _smoke_heal_0928.py:176 — baselined
+  ✔ G2 smoke-declared wiring: no NEW unwired item
+  ✔ G2 smoke-declared wiring: baseline not stale (paid-off entries removed)
+
+— G3. Guard self-test on synthetic fixtures —
+  ✔ fixture: unused local import IS flagged
+  ✔ fixture: genuinely used alias is NOT flagged (Delta)
+  ✔ fixture: annotation-only import is classified as such
+  ✔ fixture: used local import is NOT flagged
+  ✔ fixture: re-exported name is NOT flagged
+  ✔ fixture: optional (try/except ImportError) import is marked optional
+  ✔ fixture: function-local import is checked too (used vs orphaned)
+  ✔ fixture: smoke expectation satisfied by gui IS recognised
+  ✔ fixture: missing wiring IS flagged, Tk inherited attr is not
+  ✔ fixture: a file without RadioApp() is not scanned
+
+=== Summary: 18/18 passed ===
+baselined debt still open: 13 item(s) — see BASELINE_* in this file (tickets: 1017.1 Q0–Q2)

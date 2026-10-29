@@ -1,0 +1,654 @@
+pygame-ce 2.5.8 (SDL 2.32.10, Python 3.14.6)
+================================================================
+  FreQ — UI soak (20 min): rundown + queue + as-run
+  working folder: C:\Users\SOCIET~1\AppData\Local\Temp\freq_soak_ui_kc1kj3hx
+================================================================
+  💾  Saved → radio_queue.freq
+
+  🎵  Now playing: run 0 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 1/24
+
+baseline: rss=140.6 MB, threads=13, queue=24
+engine: pygame · as-run: 1 item(s)
+budget: 20 min
+
+
+  🎵  Now playing: run 1 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 2/24
+
+  🎵  Now playing: run 1 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 2/24
+
+  🎵  Now playing: run 2 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 3/24
+
+  🎵  Now playing: run 2 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 3/24
+
+  🎵  Now playing: run 3 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 4/24
+
+  🎵  Now playing: run 3 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 4/24
+
+  🎵  Now playing: run 4 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 5/24
+
+  🎵  Now playing: run 4 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 5/24
+  …  30s  queue= 24 drew= 8 advanced=  4 restarts= 0 air=  6 rss=+  1.5MB thr=13 ping_max=0ms
+
+  🎵  Now playing: run 5 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 6/24
+
+  🎵  Now playing: run 5 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 6/24
+
+  🎵  Now playing: run 6 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 7/24
+
+  🎵  Now playing: run 6 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 7/24
+
+  🎵  Now playing: run 7 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 8/24
+
+  🎵  Now playing: run 7 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 8/24
+
+  🎵  Now playing: run 8 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 9/24
+
+  🎵  Now playing: run 8 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 9/24
+  💾  Saved → radio_queue.freq
+  …  60s  queue= 24 drew= 8 advanced=  6 restarts= 2 air= 11 rss=+  1.8MB thr=10 ping_max=0ms
+
+  🎵  Now playing: run 9 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 10/24
+
+  🎵  Now playing: run 9 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 10/24
+
+  🎵  Now playing: run 10 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 11/24
+
+  🎵  Now playing: run 10 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 11/24
+
+  🎵  Now playing: run 11 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 12/24
+
+  🎵  Now playing: run 11 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 12/24
+
+  🎵  Now playing: run 12 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 13/24
+
+  🎵  Now playing: run 12 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 13/24
+  …  90s  queue= 24 drew= 8 advanced= 10 restarts= 2 air= 17 rss=+  2.4MB thr=10 ping_max=0ms
+
+  🎵  Now playing: run 13 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 14/24
+
+  🎵  Now playing: run 13 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 14/24
+
+  🎵  Now playing: run 14 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 15/24
+
+  🎵  Now playing: run 14 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 15/24
+
+  🎵  Now playing: run 15 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 16/24
+
+  🎵  Now playing: run 15 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 16/24
+
+  🎵  Now playing: run 16 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 17/24
+
+  🎵  Now playing: run 16 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 17/24
+  💾  Saved → radio_queue.freq
+  … 120s  queue= 24 drew= 8 advanced= 12 restarts= 4 air= 22 rss=+  2.9MB thr=9 ping_max=1ms
+
+  🎵  Now playing: run 17 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 18/24
+
+  🎵  Now playing: run 17 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 18/24
+
+  🎵  Now playing: run 18 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 19/24
+
+  🎵  Now playing: run 18 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 19/24
+
+  🎵  Now playing: run 19 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 20/24
+
+  🎵  Now playing: run 19 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 20/24
+  … 150s  queue= 24 drew= 8 advanced= 15 restarts= 4 air= 27 rss=+  2.9MB thr=7 ping_max=1ms
+
+  🎵  Now playing: run 20 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 21/24
+
+  🎵  Now playing: run 20 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 21/24
+
+  🎵  Now playing: run 21 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 22/24
+
+  🎵  Now playing: run 21 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 22/24
+
+  🎵  Now playing: run 22 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 23/24
+
+  🎵  Now playing: run 22 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 23/24
+
+  🎵  Now playing: run 23 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 24/24
+
+  🎵  Now playing: run 23 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 24/24
+  💾  Saved → radio_queue.freq
+  … 180s  queue= 24 drew= 0 advanced= 17 restarts= 6 air= 32 rss=+  3.4MB thr=7 ping_max=1ms
+
+  🎵  Now playing: run 0 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 1/24
+
+  🎵  Now playing: run 0 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 1/24
+
+  🎵  Now playing: run 1 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 2/24
+
+  🎵  Now playing: run 1 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 2/24
+
+  🎵  Now playing: run 2 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 3/24
+
+  🎵  Now playing: run 2 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 3/24
+
+  🎵  Now playing: run 3 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 4/24
+
+  🎵  Now playing: run 3 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 4/24
+  … 210s  queue= 24 drew= 9 advanced= 20 restarts= 7 air= 38 rss=+  4.0MB thr=7 ping_max=1ms
+
+  🎵  Now playing: run 4 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 5/24
+
+  🎵  Now playing: run 4 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 5/24
+
+  🎵  Now playing: run 5 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 6/24
+
+  🎵  Now playing: run 5 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 6/24
+
+  🎵  Now playing: run 6 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 7/24
+
+  🎵  Now playing: run 6 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 7/24
+  💾  Saved → radio_queue.freq
+  … 240s  queue= 24 drew= 8 advanced= 22 restarts= 8 air= 43 rss=+  4.5MB thr=7 ping_max=1ms
+
+  🎵  Now playing: run 7 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 8/24
+
+  🎵  Now playing: run 7 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 8/24
+
+  🎵  Now playing: run 8 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 9/24
+
+  🎵  Now playing: run 8 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 9/24
+
+  🎵  Now playing: run 9 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 10/24
+
+  🎵  Now playing: run 9 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 10/24
+
+  🎵  Now playing: run 10 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 11/24
+
+  🎵  Now playing: run 10 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 11/24
+  … 270s  queue= 24 drew=12 advanced= 25 restarts= 9 air= 48 rss=+  4.7MB thr=7 ping_max=1ms
+
+  🎵  Now playing: run 11 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 12/24
+
+  🎵  Now playing: run 11 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 12/24
+
+  🎵  Now playing: run 12 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 13/24
+
+  🎵  Now playing: run 12 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 13/24
+
+  🎵  Now playing: run 13 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 14/24
+
+  🎵  Now playing: run 13 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 14/24
+
+  🎵  Now playing: run 14 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 15/24
+
+  🎵  Now playing: run 14 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 15/24
+  💾  Saved → radio_queue.freq
+  … 300s  queue= 24 drew=12 advanced= 28 restarts=10 air= 55 rss=+  5.2MB thr=9 ping_max=1ms
+
+  🎵  Now playing: run 15 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 16/24
+
+  🎵  Now playing: run 15 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 16/24
+
+  🎵  Now playing: run 16 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 17/24
+
+  🎵  Now playing: run 16 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 17/24
+
+  🎵  Now playing: run 17 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 18/24
+
+  🎵  Now playing: run 17 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 18/24
+
+  🎵  Now playing: run 18 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 19/24
+
+  🎵  Now playing: run 18 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 19/24
+  … 331s  queue= 24 drew=12 advanced= 31 restarts=11 air= 60 rss=+ 13.1MB thr=9 ping_max=1ms
+
+  🎵  Now playing: run 19 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 20/24
+
+  🎵  Now playing: run 19 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 20/24
+
+  🎵  Now playing: run 20 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 21/24
+
+  🎵  Now playing: run 20 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 21/24
+
+  🎵  Now playing: run 21 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 22/24
+
+  🎵  Now playing: run 21 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 22/24
+  💾  Saved → radio_queue.freq
+  … 361s  queue= 24 drew= 9 advanced= 32 restarts=13 air= 64 rss=+ 15.6MB thr=9 ping_max=1557ms
+
+  🎵  Now playing: run 22 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 23/24
+
+  🎵  Now playing: run 22 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 23/24
+
+  🎵  Now playing: run 23 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 24/24
+
+  🎵  Now playing: run 23 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 24/24
+
+  🎵  Now playing: run 0 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 1/24
+
+  🎵  Now playing: run 0 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 1/24
+  … 391s  queue= 24 drew= 8 advanced= 34 restarts=14 air= 69 rss=+ 22.0MB thr=7 ping_max=1641ms
+
+  🎵  Now playing: run 1 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 2/24
+
+  🎵  Now playing: run 1 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 2/24
+
+  🎵  Now playing: run 2 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 3/24
+
+  🎵  Now playing: run 2 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 3/24
+
+  🎵  Now playing: run 3 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 4/24
+
+  🎵  Now playing: run 3 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 4/24
+
+  🎵  Now playing: run 4 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 5/24
+
+  🎵  Now playing: run 4 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 5/24
+  … 421s  queue= 24 drew=12 advanced= 38 restarts=14 air= 75 rss=+ 22.7MB thr=7 ping_max=1641ms
+  💾  Saved → radio_queue.freq
+
+  🎵  Now playing: run 5 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 6/24
+
+  🎵  Now playing: run 5 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 6/24
+
+  🎵  Now playing: run 6 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 7/24
+
+  🎵  Now playing: run 6 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 7/24
+
+  🎵  Now playing: run 7 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 8/24
+
+  🎵  Now playing: run 7 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 8/24
+  … 451s  queue= 24 drew= 0 advanced= 40 restarts=15 air= 81 rss=+ 23.0MB thr=7 ping_max=1641ms
+
+  🎵  Now playing: run 8 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 9/24
+
+  🎵  Now playing: run 8 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 9/24
+
+  🎵  Now playing: run 9 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 10/24
+
+  🎵  Now playing: run 9 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 10/24
+
+  🎵  Now playing: run 10 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 11/24
+
+  🎵  Now playing: run 10 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 11/24
+  … 481s  queue= 24 drew=12 advanced= 42 restarts=16 air= 86 rss=+ 23.3MB thr=7 ping_max=1641ms
+  💾  Saved → radio_queue.freq
+
+  🎵  Now playing: run 11 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 12/24
+
+  🎵  Now playing: run 11 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 12/24
+
+  🎵  Now playing: run 12 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 13/24
+
+  🎵  Now playing: run 12 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 13/24
+
+  🎵  Now playing: run 13 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 14/24
+
+  🎵  Now playing: run 13 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 14/24
+
+  🎵  Now playing: run 14 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 15/24
+
+  🎵  Now playing: run 14 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 15/24
+  … 511s  queue= 24 drew= 0 advanced= 44 restarts=18 air= 92 rss=+ 23.9MB thr=7 ping_max=1641ms
+
+  🎵  Now playing: run 15 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 16/24
+
+  🎵  Now playing: run 15 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 16/24
+
+  🎵  Now playing: run 16 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 17/24
+
+  🎵  Now playing: run 16 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 17/24
+
+  🎵  Now playing: run 17 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 18/24
+
+  🎵  Now playing: run 17 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 18/24
+  💾  Saved → radio_queue.freq
+
+  🎵  Now playing: run 18 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 19/24
+
+  🎵  Now playing: run 18 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 19/24
+  … 541s  queue= 24 drew= 8 advanced= 46 restarts=20 air= 98 rss=+ 30.7MB thr=7 ping_max=1641ms
+
+  🎵  Now playing: run 19 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 20/24
+
+  🎵  Now playing: run 19 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 20/24
+
+  🎵  Now playing: run 20 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 21/24
+
+  🎵  Now playing: run 20 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 21/24
+
+  🎵  Now playing: run 21 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 22/24
+
+  🎵  Now playing: run 21 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 22/24
+  … 571s  queue= 24 drew= 8 advanced= 47 restarts=22 air=102 rss=+ 31.2MB thr=7 ping_max=1641ms
+
+  🎵  Now playing: run 22 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 23/24
+
+  🎵  Now playing: run 22 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 23/24
+
+  🎵  Now playing: run 23 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 24/24
+
+  🎵  Now playing: run 23 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 24/24
+
+  🎵  Now playing: run 0 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 1/24
+
+  🎵  Now playing: run 0 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 1/24
+  💾  Saved → radio_queue.freq
+  … 601s  queue= 24 drew= 8 advanced= 49 restarts=23 air=107 rss=+ 31.6MB thr=9 ping_max=1641ms
+
+  🎵  Now playing: run 1 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 2/24
+
+  🎵  Now playing: run 1 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 2/24
+
+  🎵  Now playing: run 2 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 3/24
+
+  🎵  Now playing: run 2 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 3/24
+
+  🎵  Now playing: run 3 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 4/24
+
+  🎵  Now playing: run 3 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 4/24
+
+  🎵  Now playing: run 4 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 5/24
+
+  🎵  Now playing: run 4 — Soak
+     ⏱️  Duration: 00:06
+     📍  Position: 5/24
+  … 631s  queue= 24 drew= 8 advanced= 53 restarts=23 air=113 rss=+ 31.9MB thr=9 ping_max=1641ms

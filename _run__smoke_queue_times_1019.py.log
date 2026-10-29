@@ -1,0 +1,57 @@
+pygame-ce 2.5.8 (SDL 2.32.10, Python 3.14.6)
+  💾  Saved → radio_queue.freq
+  ✅ schedule built for every row — rows=4
+  ✅ nothing playing → row 0 starts now (±3 s) — start0-now=-0.2s
+  ✅ row 0 lasts exactly its length — 241s
+  ✅ rows continue from the one above (no gaps/distortion)
+  ✅ a stamped row reads HH:MM:SS–HH:MM:SS — 10:10:08–10:14:09
+  ✅ playing row starts at now − elapsed — 10:08:28–10:13:00
+  ✅ rows above it sit in the past by the lengths between them
+  ✅ the row before the playing one ends exactly when it starts
+  ✅ the clock string is an actual canvas item — 09:56:31–10:00:32
+  ✅ the length is still drawn beside it
+  ✅ one clock per visible row — 4 clock items
+  ✅ malformed lengths still produce a stamp for every row — 10:08:28–10:08:28 · 10:08:28–10:08:28 · 10:08:28–10:08:28 · 10:08:28–10:13:00 · 10:13:00–10:13:00
+  ✅ a broken length wastes 0 s instead of breaking the column
+  ✅ a narrow card drops the clock column — 25 text items
+  ✅ …but still shows the length and the title — 1. · 📁 · 00:00 · FOLK… · FOLK9 · 2. · 📁 · 00:00 · FOLK… · FOLK9 · 3. · 📁 · 00:00 · FOLK… · FOLK9 · ▶️ · 📁 · 04:32 · FOLK… · FOLK9 · 5. · 📁 · 00:00 · Brok… · x
+  ✅ the minute roll updates the stored minute
+  ✅ re-stamping repaints rows in place (no rebuild, no leak) — 40 → 40 items
+  ✅ the column is still stamped after the roll
+  ✅ a jingle lands after every N songs, at its real length — steps=[2, 4] inserted=3.0s
+  ✅ rows AFTER the insert are pushed by the jingle's length — row2-row0=241.5s (want 241.5)
+  ✅ rows BEFORE the insert are untouched
+  ✅ the trigger row's window CONTAINS its jingle (no invisible gap) — row1=121.5s gap=0.00s
+  ✅ the jingle is a rundown entry with its own clock window — events=[(240, 1.5), (482, 1.5)]
+  ✅ an ad break takes the slot a jingle would have taken — kinds=['ad', 'ad', 'ad']
+  ✅ the ad break carries the AD's length (round-robin file) — 9.0s
+  ✅ an ad every 2 songs shifts rows 2 and 4 by 9 s — cum=[0.0, 0.0, 9.0, 9.0, 18.0]
+  ✅ every insert carries a real length
+  ✅ an anthem inside the window folds its air time in (once) — folds=[(291, 85.0)]
+  ✅ the air time is pause + fade-in + length + fade-out — last stop 10:21:34
+  ✅ rows before the anthem keep their slot
+  ✅ the anthem is placed where it really cuts in, with its time — [('10:15:00', 85.0)]
+  ✅ the song the anthem interrupts is long enough to hold it — row=2 stop=10:17:34
+  ✅ an anthem with no known length is NOT guessed — an anthem of unknown length must fold 0 s
+  ✅ the header line names jingle / ad / anthem with a clock time — ⏭ next: 🇹🇭 anthem 10:15:00 (01:25) · 🔔 jingle 10:17:34 (00:01) · 📢 ad 10:19:35 (00:09)
+  ✅ every listed insert also shows how long it lasts — ⏭ next: 🇹🇭 anthem 10:15:00 (01:25) · 🔔 jingle 10:17:34 (00:01) · 📢 ad 10:19:35 (00:09)
+  ✅ one entry per kind — repeats collapse instead of wrapping — ⏭ next: 🇹🇭 anthem 10:15:00 (01:25) · 🔔 jingle 10:17:34 (00:01) · 📢 ad 10:19:35 (00:09)
+  ✅ the collapsed repeats are counted once at the end — events=3 line='⏭ next: 🇹🇭 anthem 10:15:00 (01:25) · 🔔 jingle 10:17:34 (00:01) · 📢 ad 10:19:35 (00:09)'
+  ✅ the header line stays short enough for one row — lines=1 chars=86
+  ✅ each rundown event kind is a separate, stamped entry — ['ad', 'anthem', 'jingle']
+  ✅ the line is packed only while there is something to report
+  ✅ many inserts of one kind collapse to one entry each — events=6 line='⏭ next: 📢 ad 10:12:09 (00:09) · 🇹🇭 anthem 10:15:00 (01:25) · +4 more'
+  ✅ the hidden inserts are counted once with +N more — ⏭ next: 📢 ad 10:12:09 (00:09) · 🇹🇭 anthem 10:15:00 (01:25) · +4 more
+  ✅ the crowded rundown is still a single row — lines=1 chars=68
+  ✅ a plain music queue hides the line again — manager=''
+  ✅ the remaining transfer time is estimated from its rate — stall=30.0s
+  ✅ the downloading row starts when its file is ready — start0-now=30.0s stall=30.0s
+  ✅ the queue stays contiguous behind that wait — gap=120.0s
+  ✅ the wait is a rundown entry with its own clock window — [{'kind': 'wait', 'status': 'downloading', 'start': 1792984209.5845928, 'stop': 1792984239.5848346, 'secs': 30.00024175643921, 'pos': 0}]
+  ✅ the download line says how much is left and when it lands — 📥 download 25% · ready ~10:10:39 · 00:30 left · queue waits
+  ✅ converting has no percentage → no invented finish time
+  ✅ the convert line shows elapsed time and admits the missing ETA — 🔄 convert · 00:07 elapsed · ETA unknown — no conversion measured yet · queue waits
+  ✅ a measured conversion speed yields a finish estimate — est=6.00s
+  ✅ the convert line then shows a ready clock, marked est. — 🔄 convert · 00:07 elapsed · ready ~10:10:09 · 00:00 left (est.) · queue waits
+
+53/53 passed

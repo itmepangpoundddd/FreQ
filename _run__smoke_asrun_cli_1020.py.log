@@ -1,0 +1,100 @@
+PASS: the fixture folder really has sealed past days — days=['2026-10-24', '2026-10-25'] today=2026-10-26
+PASS: clean folder exits 0 — rc=0 err=
+PASS: clean folder says so — as-run verify — C:\Users\SOCIET~1\AppData\Local\Temp\asrun_cli_base_gbrurtqv   (today 2026-10-26)
+  2026-10-26  clean                1 items      1 lines   manifest: missing — no manifest
+  2026-10-25
+PASS: clean folder lists every day — as-run verify — C:\Users\SOCIET~1\AppData\Local\Temp\asrun_cli_base_gbrurtqv   (today 2026-10-26)
+  2026-10-26  clean                1 items      1 lines   manifest: missing — no manifest
+  2026-10-25
+PASS: --json reports ok + counts — {"days": 3, "lines": 13, "items": 7, "clean": 3, "stale": 0, "unsealed": 0, "tampered": 0, "missing": 0}
+PASS: E: an edited payload is caught (exit 1) — rc=1
+PASS: E: the CLI names the day and the reason — as-run verify — C:\Users\SOCIET~1\AppData\Local\Temp\asrun_cli_edit_9otu9te0   (today 2026-10-26)
+  2026-10-26  clean                1 items      1 lines   manifest: missing — no manifest
+  2026-10-25
+PASS: E: it is never reported clean
+PASS: F: a deleted row is caught (exit 1) — rc=1
+PASS: F: the day is named as a problem — problems (1): 2026-10-24
+  → inspect those days; do NOT seal over them before the cause is understood
+PASS: D: a truncated day is caught (exit 1) — rc=1
+PASS: D: reported as truncated (not merely unsealed) — as-run verify — C:\Users\SOCIET~1\AppData\Local\Temp\asrun_cli_truncate_fmhjjisi   (today 2026-10-26)
+  2026-10-26  clean                1 items      1 lines   manifest: missing — no manifest
+  2026-1
+PASS: A: a re-chained file with the same line count is caught (exit 1) — rc=1 err=problems (1): 2026-10-24
+  → inspect those days; do NOT seal over them before the cause is understood
+PASS: A: reported against the sealed manifest — as-run verify — C:\Users\SOCIET~1\AppData\Local\Temp\asrun_cli_rechain_9p55hcq1   (today 2026-10-26)
+  2026-10-26  clean                1 items      1 lines   manifest: missing — no manifest
+  2026-10
+PASS: B: a re-chained and GROWN file is still caught (exit 1) — rc=1
+PASS: B: the sealed prefix is named as the reason — as-run verify — C:\Users\SOCIET~1\AppData\Local\Temp\asrun_cli_rechain_grow_p9zl6rv8   (today 2026-10-26)
+  2026-10-26  clean                1 items      1 lines   manifest: missing — no manifest
+  2026-10-25  clean     
+PASS: C: a post-seal append never passes as clean (exit 3) — rc=3 out=as-run verify — C:\Users\SOCIET~1\AppData\Local\Temp\asrun_cli_late_append_ahqrl2tk   (today 2026-10-26)
+  2026-10-26  clean                1 items      1 lines
+PASS: C: reported as stale with the remedy — as-run verify — C:\Users\SOCIET~1\AppData\Local\Temp\asrun_cli_late_append_ahqrl2tk   (today 2026-10-26)
+  2026-10-26  clean                1 items      1 lines   manifest: missing — no manifest
+  2026-10-25  clean      
+PASS: C: the appended row is still readable in the day's log
+PASS: G: a deleted day file is caught (exit 1) — rc=1
+PASS: G: reported as missing evidence — as-run verify — C:\Users\SOCIET~1\AppData\Local\Temp\asrun_cli_missing_file_xegtzlr1   (today 2026-10-26)
+  2026-10-26  clean                1 items      1 lines   manifest: missing — no manifest
+  20
+PASS: H: an unsealed earlier day fails by default (exit 1) — rc=1
+PASS: H: it is reported as UNSEALED — as-run verify — C:\Users\SOCIET~1\AppData\Local\Temp\asrun_cli_unsealed_op90cz7y   (today 2026-10-26)
+  2026-10-26  clean                1 items      1 lines   manifest: missing — no manifest
+  2026-1
+PASS: H: --allow-unsealed downgrades it to maintenance (exit 3) — rc=3
+PASS: H: even downgraded it is never 'clean'
+PASS: seal-all re-seals a grown day (exit 0) — rc=0 err=
+PASS: seal-all kept the superseded hash (audit trail) — {"previous_file_sha256": "cdd084b3d2fcd55e007d083bab691aa4521fd06ee1a61fb7c445a5fde2f3ac5e", "previous_lines": 6, "reseal_count": 1}
+PASS: seal-all recorded the new chain tail
+PASS: the re-sealed day verifies clean (exit 0) — rc=0 as-run verify — C:\Users\SOCIET~1\AppData\Local\Temp\asrun_cli_late_append_ahqrl2tk   (today 2026-10-26)
+  2026-10-26  clean                1 items      1 lines
+PASS: a second seal-all is a no-op (exit 0) — as-run seal-all — C:\Users\SOCIET~1\AppData\Local\Temp\asrun_cli_late_append_ahqrl2tk
+  sealed    : -
+  unchanged : 2026-10-24, 2026-10-25
+  skipped   : 2026-10
+PASS: A: seal-all refuses the rewritten day (exit 1) — rc=1
+PASS: A: refusal is explained on stderr — as-run: 2026-10-24: the sealed prefix was rewritten — refusing to seal over it
+  REFUSED   : 2026-10-24 — 2026-10-24: the sealed prefix was rewritten — refusing
+PASS: A: the sealed manifest is byte-identical after the refusal
+PASS: A: the day still fails verification afterwards (exit 1) — rc=1
+PASS: B: seal-all refuses the rewritten day (exit 1) — rc=1
+PASS: B: refusal is explained on stderr — as-run: 2026-10-24: the sealed prefix was rewritten — refusing to seal over it
+  REFUSED   : 2026-10-24 — 2026-10-24: the sealed prefix was rewritten — refusing
+PASS: B: the sealed manifest is byte-identical after the refusal
+PASS: B: the day still fails verification afterwards (exit 1) — rc=1
+PASS: seal-all still fails when the tampered day is today (exit 1) — rc=1 out=as-run seal-all — C:\Users\SOCIET~1\AppData\Local\Temp\asrun_cli_today_tampered_i6tcnvpw
+  sealed    : -
+  unchanged : 2
+PASS: seal-all names that day on stderr — as-run seal-all — C:\Users\SOCIET~1\AppData\Local\Temp\asrun_cli_today_tampered_i6tcnvpw
+  sealed    : -
+  unchanged : 2026-10-24, 2026-10-25
+  skipped   : 2026-10-26  (today is still airing — seal it
+PASS: seal-all says out loud that today was skipped, not sealed — as-run seal-all — C:\Users\SOCIET~1\AppData\Local\Temp\asrun_cli_today_tampered_i6tcnvpw
+  sealed    : -
+  unchanged : 2026-10-24, 2026-10-25
+  skipped   : 2026-10-26  (today is still airing — seal it
+PASS: --list exits 0 and prints one line per day — as-run — C:\Users\SOCIET~1\AppData\Local\Temp\asrun_cli_base_gbrurtqv  (3 day(s))
+  2026-10-26  clean                1 items      1 lines   manifest: missing — 
+PASS: --export writes the day as CSV (exit 0) — rc=0 
+PASS: --export keeps the Thai titles
+PASS: --export of a day with no file fails (exit 1) — rc=1
+PASS: --prune under the legal floor is a usage error (exit 2) — rc=2
+PASS: --prune under the floor deleted nothing
+PASS: --seal with a bad date is a usage error (exit 2) — rc=2
+PASS: --today with a bad date is a usage error (exit 2) — rc=2
+PASS: --today lets a past day be re-verified as 'today' (exit 0) — rc=0 as-run verify — C:\Users\SOCIET~1\AppData\Local\Temp\asrun_cli_base_gbrurtqv   (today 2026-10-26)
+  2026-10-26  clean   
+PASS: an empty folder exits 0 with no days — rc=0 as-run verify — C:\Users\SOCIET~1\AppData\Local\Temp\asrun_cli_empty_8oqurhyj   (today 2026-10-26)
+  0 day(s) · 0 items 
+PASS: a folder that does not exist yet is a note, not a failure — rc=0 err=note: C:\Users\SOCIET~1\AppData\Local\Temp\asrun_cli_none_f6j7n_ko\never does not exist yet — nothing has been recorded 
+PASS: --seal seals today on request — {"lines": 1, "items": 1, "open_items": 1}
+PASS: --seal twice is a no-op, not an error — 2026-10-26: already current — 1 items, 1 lines, chain_ok=True
+PASS: --prune past retention removes the old day (exit 0) — rc=0 pruned 1 day(s): 2026-09-11
+PASS: --prune removed both the log and its manifest
+PASS: --prune keeps days inside the retention
+PASS: the pruned folder still verifies clean (exit 0) — rc=0 as-run verify — C:\Users\SOCIET~1\AppData\Local\Temp\asrun_cli_prune_tifihjx8   (today 2026-10-26)
+  2026-10-25  clean                1 item
+PASS: no CLI invocation crashed (an exit 1 is a verdict, not a traceback) — []
+
+59/59 passed

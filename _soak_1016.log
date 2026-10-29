@@ -1,0 +1,45 @@
+=== native_stream soak — target 50,000 ops, cap 25 min ===
+
+  ✅ fake Icecast listening
+baseline: RSS 23.3 MB, threads 5
+
+  … 1,993 ops · 26 kills (13 RST, 2 outages) · 3 sessions · session 3,151,972 B · lifetime 5,417,760 B · RSS 24.3 MB · threads 8 · 60s
+  … 3,957 ops · 52 kills (24 RST, 7 outages) · 5 sessions · session 2,591,332 B · lifetime 10,773,356 B · RSS 24.4 MB · threads 6 · 121s
+  … 6,046 ops · 81 kills (31 RST, 12 outages) · 7 sessions · session 2,462,352 B · lifetime 15,765,644 B · RSS 24.5 MB · threads 7 · 181s
+  … 7,948 ops · 106 kills (37 RST, 22 outages) · 9 sessions · session 2,716,856 B · lifetime 21,063,716 B · RSS 24.6 MB · threads 6 · 241s
+  … 9,893 ops · 132 kills (43 RST, 32 outages) · 11 sessions · session 2,071,012 B · lifetime 25,784,296 B · RSS 24.7 MB · threads 8 · 301s
+  … 11,896 ops · 159 kills (50 RST, 39 outages) · 13 sessions · session 2,302,136 B · lifetime 31,465,216 B · RSS 24.8 MB · threads 7 · 361s
+  … 14,018 ops · 188 kills (63 RST, 45 outages) · 15 sessions · session 2,071,780 B · lifetime 36,687,948 B · RSS 24.8 MB · threads 5 · 421s
+  … 16,208 ops · 219 kills (75 RST, 52 outages) · 17 sessions · session 1,931,236 B · lifetime 41,262,872 B · RSS 24.9 MB · threads 8 · 481s
+  … 18,136 ops · 244 kills (83 RST, 59 outages) · 19 sessions · session 1,810,956 B · lifetime 46,383,032 B · RSS 24.9 MB · threads 7 · 542s
+  … 20,237 ops · 273 kills (93 RST, 68 outages) · 21 sessions · session 1,524,492 B · lifetime 51,540,352 B · RSS 25.0 MB · threads 9 · 602s
+  … 22,355 ops · 302 kills (99 RST, 74 outages) · 23 sessions · session 1,632,352 B · lifetime 56,283,896 B · RSS 25.0 MB · threads 6 · 662s
+  … 24,441 ops · 331 kills (109 RST, 81 outages) · 25 sessions · session 1,514,376 B · lifetime 60,838,424 B · RSS 25.0 MB · threads 6 · 722s
+  … 26,510 ops · 359 kills (118 RST, 85 outages) · 27 sessions · session 1,445,684 B · lifetime 65,669,476 B · RSS 25.1 MB · threads 8 · 782s
+  … 28,487 ops · 386 kills (131 RST, 88 outages) · 29 sessions · session 1,444,532 B · lifetime 71,318,108 B · RSS 25.0 MB · threads 6 · 843s
+  … 30,387 ops · 411 kills (142 RST, 94 outages) · 31 sessions · session 1,316,232 B · lifetime 76,720,892 B · RSS 25.1 MB · threads 8 · 903s
+  … 32,294 ops · 436 kills (148 RST, 96 outages) · 33 sessions · session 1,482,844 B · lifetime 82,656,328 B · RSS 25.1 MB · threads 8 · 963s
+  … 34,301 ops · 463 kills (159 RST, 100 outages) · 35 sessions · session 991,368 B · lifetime 87,649,768 B · RSS 25.2 MB · threads 8 · 1023s
+  … 36,344 ops · 490 kills (167 RST, 105 outages) · 37 sessions · session 761,308 B · lifetime 92,563,808 B · RSS 25.2 MB · threads 5 · 1083s
+  … 38,390 ops · 518 kills (177 RST, 112 outages) · 39 sessions · session 684,124 B · lifetime 97,435,224 B · RSS 25.2 MB · threads 8 · 1143s
+  … 40,319 ops · 543 kills (190 RST, 115 outages) · 41 sessions · session 838,064 B · lifetime 103,483,128 B · RSS 25.2 MB · threads 8 · 1203s
+  … 42,333 ops · 570 kills (198 RST, 123 outages) · 43 sessions · session 581,552 B · lifetime 108,738,752 B · RSS 25.2 MB · threads 8 · 1263s
+  … 44,338 ops · 597 kills (205 RST, 128 outages) · 45 sessions · session 497,028 B · lifetime 114,353,932 B · RSS 25.2 MB · threads 7 · 1324s
+  … 46,518 ops · 627 kills (217 RST, 135 outages) · 47 sessions · session 370,264 B · lifetime 118,389,676 B · RSS 25.2 MB · threads 6 · 1384s
+  … 48,671 ops · 657 kills (228 RST, 141 outages) · 49 sessions · session 424,024 B · lifetime 123,599,440 B · RSS 24.6 MB · threads 7 · 1444s
+
+=== soak finished: 50,015 ops in 24.7 min ===
+
+  ✅ ops target reached — 50,015/50,000
+  ✅ plenty of real disconnects — 675 kills · 234 RST · 146 full outages
+  ✅ server accepted many connections — 661 source headers seen
+  ✅ reconnect ladder always recovered — 675 recoveries, 0 failures · worst recovery 2.3s · 0 stall restarts
+  ✅ bytes flowed continuously — 126,670,696 bytes lifetime (pcm+enc diag)
+  ✅ state machine never glitched — 0 bad polls
+  ✅ stopped cleanly (idle) — state=0
+  ✅ no orphaned ffmpeg — 0 ffmpeg.exe alive
+  ✅ RSS within band — warm≈23.3 → end 24.5 MB (Δ+1.2)
+  ✅ threads back to baseline — 5 → 4
+  ✅ final smoke: fresh session streams — state=2 diag=33,068
+
+12/12 passed — all green ✅

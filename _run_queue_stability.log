@@ -1,0 +1,20 @@
+pygame-ce 2.5.8 (SDL 2.32.10, Python 3.14.6)
+  💾  Saved → radio_queue.freq
+PASS: 700 random queue operations completed — ops=700
+PASS: no exception escaped to the interpreter — []
+PASS: the app window is still alive
+PASS: contained UI errors were never needed — contained=0
+PASS: only visible cards exist as canvas items — items=72 cards=9 per_card=8.00
+PASS: canvas height tracks the queue length — height=26643 rows=321
+PASS: the canvas is packed while the queue has songs
+PASS: malformed songs still render (no card is skipped) — texts=52
+PASS: a None duration renders as 00:00, not a crash
+PASS: a raising Tk callback is contained, not fatal — contained=1
+PASS: the app still works after a contained error
+PASS: a worker-thread refresh raises nothing — []
+PASS: the worker refresh lands on the UI thread — view=327 queue=327 (was 327)
+PASS: poller was armed before close — token=after#470
+PASS: destroy() cancels the queue poller
+PASS: nothing escaped during teardown — []
+
+16/16 passed

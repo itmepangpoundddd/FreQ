@@ -1,0 +1,40 @@
+pygame-ce 2.5.8 (SDL 2.32.10, Python 3.14.6)
+  💾  Saved → radio_queue.freq
+PASS: a fresh player starts fully raw (no silent 1 dB limiting) — (0, 0.0, 0.0, 0.0, -24.0, 30, 0.0)
+PASS: set_master_chain(0) also leaves the limiter disengaged — (0, 0.0, 0.0, 0.0, -24.0, 30, 0.0)
+PASS: Configure Master Chain opens a dialog
+PASS: the dialog comes up on screen — normal
+PASS: the dialog builds all three stage panes — ['comp', 'eq', 'limit']
+PASS: exactly ONE pane is visible on open (no stacked pages) — ['eq']
+PASS: stage row 'Compressor' exists in the list
+PASS: clicking 'Compressor' raises exactly that pane — ['comp']
+PASS: stage row 'Limiter' exists in the list
+PASS: clicking 'Limiter' raises exactly that pane — ['limit']
+PASS: stage row '3-Band EQ' exists in the list
+PASS: clicking '3-Band EQ' raises exactly that pane — ['eq']
+PASS: the EQ pane has a real Enable switch
+PASS: the EQ switch flips on
+PASS: moving a slider moves its widget too — 6.0
+PASS: the dialog has an Apply button
+PASS: Apply pushes the EQ gains to the player — (0, 6.0, -2.0, 3.0, -24.0, 30, 0.0)
+PASS: EQ on / compressor off / limiter off = mode 0, ceiling >= 0 — (0, 6.0, -2.0, 3.0, -24.0, 30, 0.0)
+PASS: limiter ON sends its ceiling (< 0 dBFS) — (0, 6.0, -2.0, 3.0, -24.0, 30, -3.5)
+PASS: the settings summary lists the limiter — Chain: EQ +6/-2/+3 dB → Limiter -3.5 dB
+PASS: limiter OFF is audible state, not just a switch (ceiling >= 0) — (0, 6.0, -2.0, 3.0, -24.0, 30, 0.0)
+PASS: the summary drops the limiter when it is off — Chain: EQ +6/-2/+3 dB
+PASS: Strong character pushes mode 2 — (2, 6.0, -2.0, 3.0, -24.0, 30, 0.0)
+PASS: the ON-AIR readout names the compressor — EQ +6/-2/+3 dB → Comp 3.0:1 @ -24 dB (strong)
+PASS: Gentle character pushes mode 1 — (1, 6.0, -2.0, 3.0, -24.0, 30, 0.0)
+PASS: Defaults switches every stage off — (0, 0.0, 0.0, 0.0, -24.0, 30, 0.0)
+PASS: Defaults moves the visible sliders back — bass=0.0 thr=-24.0
+PASS: Defaults reports the raw passthrough — OFF — raw mix, bit-identical passthrough
+PASS: the Settings line follows Defaults — OFF — raw mix, bit-identical passthrough
+PASS: idle pygame engine is called out in the dialog — ⚠ Native output is idle (pygame) — these stages apply as soon as the WASAPI output plays.
+PASS: the warning clears once the WASAPI engine is running
+PASS: native master-chain self-test passes — EQ, compressor and limiter all pass
+PASS: Test chain reports in the dialog — ✅ Self-test: EQ, compressor and limiter all pass
+PASS: settings carry the chain (mode/eq/comp/limiter) — {'mode': 2, 'bass': 4.0, 'mid': 1.0, 'treble': -1.0, 'comp_thresh_db': -30.0, 'comp_ratio_x10': 40, 'limit_ceiling_db': -2.0}
+PASS: the Settings summary shows the active chain — Chain: EQ +4/+1/-1 dB → Comp 4.0:1 @ -30 dB (strong) → Limiter -2.0 dB
+PASS: closing the dialog applies and closes it
+
+36/36 passed

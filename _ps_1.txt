@@ -1,0 +1,15 @@
+pygame-ce 2.5.8 (SDL 2.32.10, Python 3.14.6)
+=== Pause-storm: mic pause/resume hardening ===
+baseline: threads=6 rss=49.4MB
+  OK  60x pause/resume on live mic
+  OK  stop after storm: mics closed, no finish
+  OK  30x pause->stop: state fully cleared
+  OK  15x mic pause->resume->stop cycles
+  OK  engine switches around live mic
+  OK  20x instant pause+stop (timer race)
+  OK  threads return to baseline — 6 -> 8
+  OK  rss bounded — 49.4 -> 50.8 MB
+  OK  mic healthy after the storm
+final: threads=6 rss=50.7MB
+
+Results: ALL PASSED

@@ -1,0 +1,139 @@
+
+— 1. Waveform generation uses a resolvable ffmpeg path —
+  ✔ generate_from_file exists
+  ✔ does NOT run a bare ffmpeg command
+  ✔ routes through player._ffmpeg_exe (bundled/path finder)
+  ✔ confirm shared resolver imports player._ffmpeg_exe
+pygame-ce 2.5.8 (SDL 2.32.10, Python 3.14.6)
+  ✔ find_ffmpeg resolves (PATH or bundled deps dir)
+  ✔ missing file → flat silence, no crash
+
+— 2. Queue rename (right-click → Rename) —
+  ✔ RadioApp._rename_queue_song exists
+  ✔ rename writes BOTH queue song and library entry
+  ✔ rename persists immediately via save_to_file
+  ✔ right-click menu offers Rename…
+
+— 3. Multi-select: Shift+click + Shift+arrows —
+  ✔ RadioApp._queue_shift_click exists
+  ✔ RadioApp._apply_queue_shift_arrow exists
+  ✔ selection is a contiguous ORDERED range from the anchor
+  ✔ the arrow handler reads the range ends it actually stores
+  ✔ Shift binds registered on the window
+  ✔ Shift+click routes through state-shift branch
+  ✔ logic: one shift-down from row 2 → {2,3}
+  ✔ logic: repeated shift-down grows to {2,3,4}
+  ✔ logic: one shift-up → {1,2}
+  ✔ logic: repeated shift-down reaches the LAST entry
+  ✔ Shift+click stores the same ordered list
+
+— 3b. Deselect: Ctrl+D + click on empty playlist space —
+  ✔ RadioApp._clear_queue_selection exists
+  ✔ deselect drops the ordered selection and the single index
+  ✔ deselect drops the shift anchor too
+  ✔ deselect repaints live instead of rebuilding the queue (scroll + playback stay put)
+  ✔ RadioApp._bind_queue_empty_click exists
+  ✔ empty-space click is bound on the CTk scroll-frame background
+  ✔ the background bind is additive (CTk keeps its own canvas work)
+  ✔ the playlist background is wired at build time
+  ✔ Keys tab declares the deselect action on Ctrl+D
+  ✔ deselect is wired to the Keys-tab action id
+
+— 4. Marquee (long track titles slide; short ones don't) —
+  ✔ RadioApp._start_title_marquee exists
+  ✔ tick loop registered via self.after
+  ✔ external text change resets the slide
+  ✔ short titles disable bouncing (overflow check)
+  ✔ paused playback holds the slide
+  ✔ sim: short title never slides
+  ✔ sim: long title slides (window changes)
+  ✔ sim: sliding windows are contiguous slices of full text
+
+— 5. Dual Output wiring + per-output volume —
+  ✔ RadioApp._on_dual_selected exists
+  ✔ RadioApp._on_dual_volume exists
+  ✔ RadioApp._refresh_dual_device_list exists
+  ✔ RadioApp._apply_remembered_dual exists
+  ✔ gui imports DualOutputMirror
+  ✔ dual UI row sits under the main device dropdown (dual_frame after refresh btn)
+  ✔ dual dropdown slider reaches engine volume setter
+  ✔ collect carries the dual_output config (enabled/endpoint/volume)
+  ✔ restore path reads top-level dual_output key
+  ✔ restore starts mirror from remembered endpoint
+  ✔ shutdown releases the mirror
+  ✔ dual volume handler never touches the shell (code, not docstring)
+  ✔ dual volume handler stays label + mirror volume only
+  ✔ no stray docstring/body left inside the slider handler
+  ✔ RadioApp._open_sound_settings is its own method
+  ✔ the manual output picker still opens the settings page
+  ✔ mirror volume clamps to 2.0 max
+  ✔ mirror volume clamps to 0.0 min
+  ✔ stats() before start reports stopped/off
+  ✔ stop() is idempotent while never started
+  ✔ start refuses empty/endless endpoint
+
+— 5b. Mouse wheel on the volume bars —
+  ✔ RadioApp._bind_wheel_volume exists
+  ✔ both wheel dialects are handled (MouseWheel + X11 Buttons)
+  ✔ the binding is additive (CTk keeps its drag handlers)
+  ✔ a notch stops there instead of scrolling the sidebar behind it
+  ✔ the wheel steps a fixed amount per notch
+  ✔ the main volume bar takes the wheel
+  ✔ the dual-output bar takes the wheel, clamped to its own 200 %
+  ✔ the mixer master fader takes the wheel
+  ✔ every mixer channel fader takes the wheel
+
+— 5c. Playlist import: "Add only first video in the playlist" —
+  ✔ PlaylistRangeDialog exists
+  ✔ the third option carries the requested label verbatim
+  ✔ it is a real choice (radiobutton value 'first')
+  ✔ a playlist's opening-track title is shown beside it
+  ✔ Return confirms / Esc cancels
+  ✔ the dialog grows to fit its content instead of clipping
+  ✔ PlaylistRangeDialog._ok returns 'first' for that choice
+  ✔ the picker opens for every multi-video playlist
+  ✔ the picker is handed the opening video's title
+  ✔ 'first' resolves to exactly one song
+  ✔ a playlist link pasted into Add Video is routed to the picker
+
+— 5d. Master Broadcast Chain: working two-pane dialog —
+  ✔ RadioApp._open_master_chain exists
+  ✔ the parent-walking stage switch is gone
+  ✔ stages are switched through an explicit pane dict
+  ✔ limiter OFF sends a non-engaged ceiling (>= 0 dBFS)
+  ✔ Defaults moves the widgets, not just a dict
+  ✔ compressor character drives mode 1/2
+  ✔ the dialog shows a live ON-AIR readout
+  ✔ the dialog warns when the native engine is idle
+  ✔ closing the window applies (no silent discard)
+  ✔ a self-test is exposed to the UI
+  ✔ the state summary helper exists
+  ✔ Settings shows the chain state under its own button
+  ✔ the Settings summary is refreshed from the restored state
+  ✔ Mic Filters has no Settings section/button any more
+  ✔ the mic chain dialog is still reachable (from a queue mic row)
+  ✔ Settings no longer offers a second EQ section
+  ✔ the chain dialog keeps the only EQ
+  ✔ player default chain is raw (ceiling >= 0)
+  ✔ set_master_chain defaults to a disengaged limiter
+  ✔ restoring a chain without a ceiling keeps the limiter off
+
+— 5e. YouTube Mix / radio links (list=RD…) fall back to the video —
+  ✔ is_mix_playlist exists and keys on the RD prefix
+  ✔ video_url_from exists (watch?v= and youtu.be)
+  ✔ Add Video detects a Mix before routing to the playlist flow
+  ✔ a Mix link is reduced to its video id, not imported as a playlist
+  ✔ a zero-entry playlist falls back to its video id
+  ✔ the error message explains Mix/radio links
+
+— 5f. VU meter reads the programme, not the speakers —
+  ✔ the tap asks the native engine meter first
+  ✔ an available engine meter short-circuits the loopback
+  ✔ the loopback stays as the fallback (pygame engine)
+  ✔ the tap no longer applies the volume slider a second time
+  ✔ the streaming PCM branch still gets the gain (it is pre-volume)
+
+— 6. Regression: previous suites still import clean —
+  ✔ core modules import cleanly
+
+=== 112 passed, 0 failed ===

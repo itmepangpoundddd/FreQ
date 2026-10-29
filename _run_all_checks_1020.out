@@ -1,0 +1,11 @@
+edge_cases                   rc=0   561/561 passed — all green ✅
+gui_wiring                   rc=0   === Summary: 18/18 passed ===
+ui_1016                      rc=0   === 112 passed, 0 failed ===
+smoke_asrun                  rc=0   101/101 passed
+smoke_asrun_cli              rc=0   59/59 passed
+smoke_playlist               rc=0   32/32 passed
+queue_times                  rc=0   47/47 passed
+settings_persist             rc=0   === 34 passed, 0 failed ===
+master_chain                 rc=0   36/36 passed
+queue_stability              rc=0   16/16 passed
+random_insert                rc=0   31/31 passed
