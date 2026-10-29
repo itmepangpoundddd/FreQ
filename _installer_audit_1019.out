@@ -1,0 +1,55 @@
+VERSION
+  installer.iss : 2026.1020.2
+  version.txt   : 2026.1020.2  (in sync)
+  RELEASENOTES  : MISSING for 2026.1020.2
+  notes newest  : 2026.1019.2
+
+INSTALLER [Files]
+  OK   dist\FreQ\{#MyAppExeName}
+  OK   dist\FreQ\_internal\*
+  OK   logo.ico
+  OK   logo.png
+  OK   logo.svg
+  OK   gui.py
+  OK   radio_manager.py
+  OK   player.py
+  OK   audio.py
+  OK   audio_meter.py
+  OK   features.py
+  OK   cache.py
+  OK   streaming.py
+  OK   icons.py
+  OK   tooltips.py
+  OK   log_handler.py
+  OK   app.py
+  OK   asrun.py
+  OK   aircheck.py
+  OK   aircheck_split.py
+  OK   dual_output.py
+  OK   focus_mode.py
+  OK   keys_tab.py
+  OK   livelan.py
+  OK   mic_recorder.py
+  OK   plugin_system.py
+  OK   scheduler.py
+  OK   silence_sentinel.py
+  OK   theme.py
+  OK   titlebar.py
+  OK   update_checker.py
+  OK   visualizer.py
+  OK   freq_supervisor.py
+  OK   sentinel_heal.py
+  OK   requirements.txt
+  OK   LICENSE
+  OK   README.md
+  OK   deps\ffmpeg-essentials\*
+
+RUNTIME MODULES
+  gui.py imports 25 local modules; 25 shipped in [Files]
+  not shipped : none
+  shipped but not imported by gui.py: aircheck_split.py, app.py, freq_supervisor.py, sentinel_heal.py
+
+BUNDLE
+  dist/FreQ/FreQ.exe: 2026-10-19 11:01
+  newest source/template: 2026-10-19 15:37
+  bundle is STALE — rebuild before compiling the installer

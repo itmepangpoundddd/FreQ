@@ -1,0 +1,39 @@
+pygame-ce 2.5.8 (SDL 2.32.10, Python 3.14.6)
+  💾  Saved → radio_queue.freq
+PASS: a fresh session defaults to Immediate OFF (dialogs are opt-in)
+PASS: a fresh session defaults to autosave ON every 60 s — True/60
+PASS: Master Chain dialog opens
+PASS: the Immediate mode switch is in the dialog
+PASS: the switch starts OFF on a fresh session
+PASS: the Close button applies and closes (the operator's path)
+PASS: closing with Immediate ON stores the flag on the app — True
+PASS: the Settings widgets drove the live state — False/123
+PASS: _collect_settings carries master_chain_immediate — True
+PASS: _collect_settings carries autosave {enabled, interval} — {'enabled': False, 'interval': 123}
+  💾  Saved → C:\Users\SOCIET~1\AppData\Local\Temp\freq_persist_smoke_xub6gcs_\persist_check.freq
+PASS: the .freq file has the Immediate flag — True
+PASS: the .freq file has autosave enabled=False — {'enabled': False, 'interval': 123}
+PASS: the .freq file has autosave interval=123 as an int — {'enabled': False, 'interval': 123}
+PASS: the restarting process exits cleanly
+PASS: the restarting process reported its state — RESULT {"autosave_enabled": false, "autosave_entry": "123", "autosave_interval": 123, "autosave_var": false, "dialog": true, "dialog_switch": true, "master_chain_immediate": true}
+PASS: Immediate mode survives the restart — {'autosave_enabled': False, 'autosave_entry': '123', 'autosave_interval': 123, 'autosave_var': False, 'dialog': True, 'dialog_switch': True, 'master_chain_immediate': True}
+PASS: autosave stays OFF across the restart — {'autosave_enabled': False, 'autosave_entry': '123', 'autosave_interval': 123, 'autosave_var': False, 'dialog': True, 'dialog_switch': True, 'master_chain_immediate': True}
+PASS: the autosave interval survives the restart — {'autosave_enabled': False, 'autosave_entry': '123', 'autosave_interval': 123, 'autosave_var': False, 'dialog': True, 'dialog_switch': True, 'master_chain_immediate': True}
+PASS: the Settings switch shows OFF after the restart — {'autosave_enabled': False, 'autosave_entry': '123', 'autosave_interval': 123, 'autosave_var': False, 'dialog': True, 'dialog_switch': True, 'master_chain_immediate': True}
+PASS: the Settings field shows 123 after the restart — {'autosave_enabled': False, 'autosave_entry': '123', 'autosave_interval': 123, 'autosave_var': False, 'dialog': True, 'dialog_switch': True, 'master_chain_immediate': True}
+PASS: the Master Chain dialog re-opens after the restart — {'autosave_enabled': False, 'autosave_entry': '123', 'autosave_interval': 123, 'autosave_var': False, 'dialog': True, 'dialog_switch': True, 'master_chain_immediate': True}
+PASS: the dialog's Immediate switch is ON after the restart — {'autosave_enabled': False, 'autosave_entry': '123', 'autosave_interval': 123, 'autosave_var': False, 'dialog': True, 'dialog_switch': True, 'master_chain_immediate': True}
+PASS: the legacy/garbage phase exits cleanly
+PASS: the legacy/garbage phase reported its state — RESULT {"coerced": {"'abc'": 60, "1000000000": 86400, "2": 5, "300": 300, "5": 5, "None": 60}, "hostile": {"enabled": false, "entry": "5", "interval": 5, "var": false}, "legacy": {"autosave_enabled": true, "autosave_interval": 60, "master_chain_immediate": false, "volume": 55.0}}
+PASS: a pre-change .freq still restores (no new keys = no crash) — {'autosave_enabled': True, 'autosave_interval': 60, 'master_chain_immediate': False, 'volume': 55.0}
+PASS: a pre-change .freq keeps Immediate OFF — {'autosave_enabled': True, 'autosave_interval': 60, 'master_chain_immediate': False, 'volume': 55.0}
+PASS: a pre-change .freq keeps the autosave defaults — {'autosave_enabled': True, 'autosave_interval': 60, 'master_chain_immediate': False, 'volume': 55.0}
+PASS: a 2 s interval is floored to 5 s — {"'abc'": 60, '1000000000': 86400, '2': 5, '300': 300, '5': 5, 'None': 60}
+PASS: unparseable text falls back to 60 s — {"'abc'": 60, '1000000000': 86400, '2': 5, '300': 300, '5': 5, 'None': 60}
+PASS: a huge interval is capped at 24 h — {"'abc'": 60, '1000000000': 86400, '2': 5, '300': 300, '5': 5, 'None': 60}
+PASS: None falls back to 60 s — {"'abc'": 60, '1000000000': 86400, '2': 5, '300': 300, '5': 5, 'None': 60}
+PASS: a sane value passes through untouched — {"'abc'": 60, '1000000000': 86400, '2': 5, '300': 300, '5': 5, 'None': 60}
+PASS: restoring a hostile interval lands on 5 s, not 2 s — {'enabled': False, 'entry': '5', 'interval': 5, 'var': False}
+PASS: a restored autosave=enabled False turns the switch off — {'enabled': False, 'entry': '5', 'interval': 5, 'var': False}
+
+=== 34 passed, 0 failed ===

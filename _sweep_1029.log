@@ -1,0 +1,36 @@
+test_edge_cases        rc=1     54s  560/561 passed — 1 FAILED
+test_gui_wiring        rc=0      2s  === Summary: 18/18 passed ===
+test_ui_1016           rc=0      3s  
+_smoke_asrun_1020      rc=0     27s  105/105 passed
+_smoke_asrun_cli_1020  rc=0      7s  59/59 passed
+_smoke_playlist_1020   rc=0      8s  32/32 passed
+_smoke_queue_times_1019 rc=0      8s  53/53 passed
+_smoke_settings_persist_1017 rc=0     26s  
+_smoke_master_chain_1017 rc=0     10s  36/36 passed
+_smoke_queue_stability_1018 rc=0     21s  16/16 passed
+_smoke_random_insert_1020 rc=0      8s  31/31 passed
+_smoke_end_modes_1021  rc=0      8s  52/52 passed
+_smoke_audio_editor_1027 rc=0     15s    103/103 checks passed
+_smoke_browse_multi_1026 rc=0      9s  27/27 passed
+_smoke_stream_m3u8_1029 rc=0     14s    38/38 checks passed
+_smoke_dual_0927       rc=0      8s  15/15 passed
+_smoke_heal_0928       rc=1      7s  
+_smoke_select_1017     rc=0      8s  32/32 passed
+_smoke_marker_0926     rc=1      9s  
+_smoke_split_0928      rc=1      8s  
+_smoke_queue_nav_1018  rc=1     12s  50/51 passed
+_smoke_wheel_1017      rc=0      9s  30/30 passed
+_smoke_freq_roundtrip_1017 rc=0     27s  
+_smoke_playlist_first_1017 rc=0     13s  26/26 passed
+_smoke_yt_mix_1017     rc=0     13s  21/21 passed
+_smoke_supervisor_0926 rc=0     17s  summary: 10/10 passed
+_smoke_watchdog_0926   rc=0      4s  summary: 5/5 passed
+_smoke_sup_0928        rc=1      4s  8/16 passed
+test_plugin_system     rc=0      1s  === Summary: 43/43 passed — all green ✅
+test_silence_sentinel  rc=0      1s  === Summary: 40/40 passed — all green ✅
+test_combo_aircheck_stream rc=0     58s  
+test_jingle_stress     rc=0     87s  Results: 41/41 passed
+test_multi_mic         rc=1     11s  Results: 12/13 passed
+test_pause_storm       rc=0      6s  
+FAILED SUITES: 7
+test_edge_cases        rc=0    (re-run after the LIVE-token update)  563/563 passed — all green ✅

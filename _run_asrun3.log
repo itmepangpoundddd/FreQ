@@ -1,0 +1,457 @@
+as-run: cannot append to 2026-10-26.jsonl: [WinError 183] Cannot create a file when that file already exists: 'C:\\Users\\SOCIET~1\\AppData\\Local\\Temp\\asrun_bad_brb69lox\\not_a_dir'
+invalid command name "2661778234368<lambda>"
+    while executing
+"2661778234368<lambda>"
+    ("after" script)
+invalid command name "2661777436352<lambda>"
+    while executing
+"2661777436352<lambda>"
+    ("after" script)
+invalid command name "2661798159616_tick"
+    while executing
+"2661798159616_tick"
+    ("after" script)
+invalid command name "2661798322304check_dpi_scaling"
+    while executing
+"2661798322304check_dpi_scaling"
+    ("after" script)
+invalid command name "2661797680960update"
+    while executing
+"2661797680960update"
+    ("after" script)
+invalid command name "2661798252032step"
+    while executing
+"2661798252032step"
+    ("after" script)
+invalid command name "2661798403968_start_progress_timer"
+    while executing
+"2661798403968_start_progress_timer"
+    ("after" script)
+invalid command name "2661798035520step"
+    while executing
+"2661798035520step"
+    ("after" script)
+invalid command name "2661797611584step"
+    while executing
+"2661797611584step"
+    ("after" script)
+invalid command name "2661778235776destroy"
+    while executing
+"2661778235776destroy"
+    ("after" script)
+invalid command name "2661706364544_windows_set_titlebar_icon"
+    while executing
+"2661706364544_windows_set_titlebar_icon"
+    ("after" script)
+invalid command name "2661777151616_check_if_scrollbars_needed"
+    while executing
+"2661777151616_check_if_scrollbars_needed"
+    ("after" script)
+invalid command name "2661775539712_check_if_scrollbars_needed"
+    while executing
+"2661775539712_check_if_scrollbars_needed"
+    ("after" script)
+invalid command name "2661798300032<lambda>"
+    while executing
+"2661798300032<lambda>"
+    ("after" script)
+invalid command name "2661778748160_tick"
+    while executing
+"2661778748160_tick"
+    ("after" script)
+invalid command name "2661778231296_mark_settings_dirty"
+    while executing
+"2661778231296_mark_settings_dirty"
+    ("after" script)
+invalid command name "2661778228928_mark_settings_dirty"
+    while executing
+"2661778228928_mark_settings_dirty"
+    ("after" script)
+invalid command name "2661778240192_mark_settings_dirty"
+    while executing
+"2661778240192_mark_settings_dirty"
+    ("after" script)
+invalid command name "2661798161216_mark_settings_dirty"
+    while executing
+"2661798161216_mark_settings_dirty"
+    ("after" script)
+invalid command name "2661798151744_mark_settings_dirty"
+    while executing
+"2661798151744_mark_settings_dirty"
+    ("after" script)
+invalid command name "2661778239424step"
+    while executing
+"2661778239424step"
+    ("after" script)
+invalid command name "2661798160448_on_protocol_change"
+    while executing
+"2661798160448_on_protocol_change"
+    ("after" script)
+invalid command name "2661778228224step"
+    while executing
+"2661778228224step"
+    ("after" script)
+invalid command name "2661798305408_start_progress_timer"
+    while executing
+"2661798305408_start_progress_timer"
+    ("after" script)
+invalid command name "2661797305664destroy"
+    while executing
+"2661797305664destroy"
+    ("after" script)
+invalid command name "2661798159360destroy"
+    while executing
+"2661798159360destroy"
+    ("after" script)
+invalid command name "2661778664640destroy"
+    while executing
+"2661778664640destroy"
+    ("after" script)
+invalid command name "2661798264704destroy"
+    while executing
+"2661798264704destroy"
+    ("after" script)
+invalid command name "2661777666176destroy"
+    while executing
+"2661777666176destroy"
+    ("after" script)
+PASS: disabled: begin writes nothing
+PASS: disabled: no file created
+PASS: keep_days is kept above the legal floor
+PASS: keep_days clamps up to the floor
+PASS: begin returns an id — 2026-10-26#1
+PASS: begin opens exactly one item as active
+PASS: a second begin supersedes the first (no lost pairing)
+PASS: end closes the active item
+PASS: end of an unknown id is a no-op
+PASS: two items paired — 2
+PASS: start/end timestamps + totals present — [{'id': '2026-10-26#1', 'seq': 1, 'kind': 'music', 'title': 'เพลงไทย', 'artist': 'ศิลปิน', 'song_id': '', 'planned_duration': 240.0, 'ts_start': '2026-10-26T10:28:10.810+07:00', 'ts_end': '2026-10-26T10:28:10.832+07:00', 'actual_duration': 0.001, 'ended_why': 'superseded', 'reason': 'queue · local file', 'plan_revision': None, 'source': {'path': 'C:/music/a.mp3', 'type': 'file', 'url': ''}, 'channel': 'music', 'recording': None, 'open': False}, {'id': '2026-10-26#3', 'seq': 3, 'kind': 'mic', 'title': 'พูดสด', 'artist': '', 'song_id': '', 'planned_duration': None, 'ts_start': '2026-10-26T10:28:10.834+07:00', 'ts_end': '2026-10-26T10:28:10.837+07:00', 'actual_duration': 0.001, 'ended_why': 'natural', 'reason': '', 'plan_revision': None, 'source': {'path': '', 'type': '', 'url': ''}, 'channel': 'mic', 'recording': None, 'open': False}]
+PASS: stats count items and kinds — {'date': '2026-10-26', 'items': 2, 'by_kind': {'music': 1, 'mic': 1}, 'open': 0, 'aired_seconds': 0.002, 'lines': 4, 'exists': True, 'bytes': 1793}
+PASS: every row carries prev_hash + hash
+PASS: genesis row links to the zero hash
+PASS: each row links to the row before it
+PASS: seq counts up
+PASS: verify passes on an untouched day — {'date': '2026-10-26', 'exists': True, 'lines': 4, 'items': 2, 'ok': True, 'errors': [], 'manifest': 'missing', 'state': 'clean', 'manifest_detail': None, 'head_seq': 1, 'tail_hash': '936205c445038678b5553aa5d1cc985fe125bd06', 'prefix_ok': None, 'row_hashes': ['64f9c41241ac5f79edcb3bb6c187ffe0222de1f7', 'c73d46991ec33ebe2bff52865fe88d3a4d6eeaee', 'abef18f8fef63676daba1935b61acb49e4c4426b', '936205c445038678b5553aa5d1cc985fe125bd06']}
+PASS: manifest sealed with counts + file hash
+PASS: verify accepts a matching manifest
+PASS: verify catches an edited line — ['line 1: hash does not match the content (line edited)', 'manifest: 4 lines / aa4a5399e4a7… but the file has 4 lines — the file was rewritten after sealing (sha256 differs)']
+PASS: verify reports the manifest no longer matches
+PASS: verify catches a deleted line (seq gap) — ['line 1: hash does not match the content (line edited)', 'line 2: seq 3 (expected 2)']
+PASS: CSV exported — C:\Users\SOCIET~1\AppData\Local\Temp\asrun_csv_07micpqy\2026-10-26.csv
+PASS: CSV has BOM + header + one row per item — ['seq,start,end,kind,title,artist,duration_s,ended_why,channel,source,path,plan_revision,reason', '1,2026-10-26T10:28:10.856+07:00,2026-10-26T10:28:10.958+07:00,music,ไทย,ศิลปิน,,natural,music,file,C:/a.mp3,,']
+PASS: CSV keeps Thai title + end reason
+PASS: prune refuses under the legal floor
+PASS: refused prune deleted nothing
+PASS: prune removes days past retention — ['2020-01-01', '2020-01-02']
+PASS: prune never removes today
+PASS: forced prune can go lower
+PASS: an item that crosses midnight stays in its start day's file — ['2026-10-20']
+PASS: IO failure: begin returns None instead of raising
+PASS: IO failure: last_error is set for the UI — cannot append to 2026-10-26.jsonl: [WinError 183] Cannot create a file when that file already exists: 'C:\\Users\\SOCIET~1\\AppData\\Local\\Temp\\asrun_bad_brb69lox\\not_a_dir'
+PASS: IO failure: end on a failed begin is safe
+pygame-ce 2.5.8 (SDL 2.32.10, Python 3.14.6)
+  💾  Saved → radio_queue.freq
+PASS: As-run tab exists in the sidebar
+PASS: as-run is OFF by default
+PASS: tab shows day nav + switch + rows frame
+
+  🎵  Now playing: เพลง 1 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 1/20
+PASS: first item opens on air — 2026-10-26#1
+
+  🎵  Now playing: เพลง 2 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 2/20
+
+  🎵  Now playing: เพลง 2 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 2/20
+
+  🎵  Now playing: เพลง 3 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 3/20
+
+  🎵  Now playing: เพลง 3 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 3/20
+
+  🎵  Now playing: เพลง 4 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 4/20
+
+  🎵  Now playing: เพลง 4 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 4/20
+
+  🎵  Now playing: เพลง 5 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 5/20
+
+  🎵  Now playing: เพลง 5 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 5/20
+
+  🎵  Now playing: เพลง 6 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 6/20
+
+  🎵  Now playing: เพลง 6 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 6/20
+
+  🎵  Now playing: เพลง 7 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 7/20
+
+  🎵  Now playing: เพลง 7 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 7/20
+
+  🎵  Now playing: เพลง 8 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 8/20
+
+  🎵  Now playing: เพลง 8 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 8/20
+
+  🎵  Now playing: เพลง 9 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 9/20
+
+  🎵  Now playing: เพลง 9 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 9/20
+
+  🎵  Now playing: เพลง 10 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 10/20
+
+  🎵  Now playing: เพลง 10 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 10/20
+
+  🎵  Now playing: เพลง 11 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 11/20
+
+  🎵  Now playing: เพลง 11 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 11/20
+
+  🎵  Now playing: เพลง 12 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 12/20
+
+  🎵  Now playing: เพลง 12 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 12/20
+
+  🎵  Now playing: เพลง 13 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 13/20
+
+  🎵  Now playing: เพลง 13 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 13/20
+
+  🎵  Now playing: เพลง 14 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 14/20
+
+  🎵  Now playing: เพลง 14 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 14/20
+
+  🎵  Now playing: เพลง 15 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 15/20
+
+  🎵  Now playing: เพลง 15 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 15/20
+
+  🎵  Now playing: เพลง 16 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 16/20
+
+  🎵  Now playing: เพลง 16 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 16/20
+
+  🎵  Now playing: เพลง 17 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 17/20
+
+  🎵  Now playing: เพลง 17 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 17/20
+
+  🎵  Now playing: เพลง 18 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 18/20
+
+  🎵  Now playing: เพลง 18 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 18/20
+
+  🎵  Now playing: เพลง 19 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 19/20
+
+  🎵  Now playing: เพลง 19 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 19/20
+
+  🎵  Now playing: เพลง 20 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 20/20
+
+  🎵  Now playing: เพลง 20 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 20/20
+PASS: 20 scripted items -> 20 as-run items — {'date': '2026-10-26', 'items': 20, 'by_kind': {'music': 20}, 'open': 0, 'aired_seconds': 1.021, 'lines': 40, 'exists': True, 'bytes': 20346}
+PASS: every item is closed
+PASS: two lines per item (start + end) — 40
+PASS: all 20 are music — {'music': 20}
+PASS: first item's aired length matches real elapsed (~1.0 s) — 1.003
+PASS: items 2-20 were near-instant (no sleeps)
+PASS: titles/artists kept per item
+PASS: verify passes after a scripted run — []
+PASS: appending never rewrites existing lines
+PASS: rq.history still records airings — 39
+
+  🎵  Now playing: ไฟล์หาย
+     ⏱️  Duration: 01:40
+     📍  Position: 21/21
+PASS: missing file is recorded as 'missing', not silently dropped — ['missing', 'natural', 'stopped']
+PASS: a missing item is never left open
+
+  🎵  Now playing: เพลง 1 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 1/21
+
+  🎵  Now playing: เพลง 1 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 1/21
+
+  🎵  Now playing: เพลง 1 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 1/21
+
+  🎵  Now playing: เพลง 2 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 2/21
+
+  🎵  Now playing: เพลง 2 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 2/21
+PASS: a manual skip is recorded as 'skipped'
+
+  🎵  Now playing: เพลง 1 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 1/21
+PASS: an automatic ad break opens an 'ad' item — {'id': '2026-10-26#53', 'date': '2026-10-26', 'kind': 'ad', 'title': 'ad1', 'artist': '', 'channel': 'ads', 'monotonic': 10616.792843, 'started': '2026-10-26T10:28:21.069+07:00'}
+
+  🎵  Now playing: เพลง 2 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 2/21
+
+  🎵  Now playing: เพลง 2 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 2/21
+PASS: the ad closed naturally and music resumed — [('ad1', 'natural')]
+
+  🎵  Now playing: เพลง 1 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 1/21
+PASS: an automatic jingle opens a 'jingle' item — {'id': '2026-10-26#59', 'date': '2026-10-26', 'kind': 'jingle', 'title': 'jingle', 'artist': '', 'channel': 'jingle', 'monotonic': 10616.8365689, 'started': '2026-10-26T10:28:21.113+07:00'}
+
+  🎵  Now playing: เพลง 2 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 2/21
+
+  🎵  Now playing: เพลง 2 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 2/21
+PASS: auto jingle closed naturally + music resumed — [('jingle', 'natural')]
+
+  🎵  Now playing: เพลง 1 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 1/21
+PASS: manual jingle records the interrupted song as 'jingle-cut'
+PASS: after a manual jingle the song resumes on air — {'id': '2026-10-26#67', 'date': '2026-10-26', 'kind': 'music', 'title': 'เพลง 1', 'artist': 'ศิลปิน', 'channel': 'music', 'monotonic': 10616.8931588, 'started': '2026-10-26T10:28:21.169+07:00'}
+PASS: the resumed song carries the jingle-resume reason
+
+  🎵  Now playing: เพลง 1 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 1/21
+PASS: the anthem opened its own item — [{'id': '2026-10-26#71', 'seq': 71, 'kind': 'anthem', 'title': 'national anthem', 'artist': '', 'song_id': '', 'planned_duration': 30.0, 'ts_start': '2026-10-26T10:28:21.226+07:00', 'ts_end': '', 'actual_duration': None, 'ended_why': '', 'reason': 'anthem time (automatic)', 'plan_revision': None, 'source': {'path': 'C:\\Users\\SOCIET~1\\AppData\\Local\\Temp\\asrun_gui_aa6r6y5k\\anthem.mp3', 'type': 'file', 'url': ''}, 'channel': 'anthem', 'recording': None, 'open': True}]
+PASS: the song under the anthem is marked 'anthem-cut'
+PASS: anthem closed natural + the song re-entered — {'id': '2026-10-26#73', 'date': '2026-10-26', 'kind': 'music', 'title': 'เพลง 1', 'artist': 'ศิลปิน', 'channel': 'music', 'monotonic': 10617.0365805, 'started': '2026-10-26T10:28:21.312+07:00'}
+
+  🎵  Now playing: ช่วงพูดสด
+     ⏱️  Duration: 00:30
+     📍  Position: 1/22
+PASS: a mic queue item opens kind='mic' — {'id': '2026-10-26#75', 'date': '2026-10-26', 'kind': 'mic', 'title': 'ช่วงพูดสด', 'artist': '', 'channel': 'mic', 'monotonic': 10617.1685596, 'started': '2026-10-26T10:28:21.445+07:00'}
+
+  🎵  Now playing: เพลง 1 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 2/22
+
+  🎵  Now playing: เพลง 1 — ศิลปิน
+     ⏱️  Duration: 03:00
+     📍  Position: 2/22
+PASS: mic item closed with a reason
+PASS: going on air opens a 'stream' item — {'id': '2026-10-26#79', 'date': '2026-10-26', 'kind': 'stream', 'title': 'FreQ Radio', 'artist': '', 'channel': 'stream', 'monotonic': 10617.2738823, 'started': '2026-10-26T10:28:21.482+07:00'}
+PASS: stopping the stream closes it as 'stopped' — [('FreQ Radio', 'stopped')]
+PASS: a relay opens kind='relay' — {'id': '2026-10-26#81', 'date': '2026-10-26', 'kind': 'relay', 'title': 'external stream relay', 'artist': '', 'channel': 'relay', 'monotonic': 10617.286729, 'started': '2026-10-26T10:28:21.563+07:00'}
+PASS: relay closed as 'stopped'
+PASS: an item links to the air-check file + offset — {'file': 'C:\\Users\\SOCIET~1\\AppData\\Local\\Temp\\asrun_gui_aa6r6y5k\\aircheck_1200.wav', 'offset': 12.5}
+PASS: no recording -> no reference (never invented)
+PASS: GUI begin is fail-soft on IO error
+PASS: GUI shows the error in the tab (no silent loss)
+PASS: tab summary reports the write failure
+PASS: tab draws one row per item — 43 rows / 43 items
+PASS: summary line carries items + chain state — 2026-10-26: 43 items · 0:00:02 on air · 🔗 chain intact
+PASS: the As-run tab becomes the shown panel
+PASS: rows request a real size (not collapsed widgets) — 146x62
+PASS: day label shows the selected day — 2026-10-26 (today)
+PASS: the action row has a Refresh button first and five ops — ['🔄 Refresh', '🔒 Seal', '🔒 All days', '✅ Verify', '📤 CSV', '🗑 Prune']
+PASS: every action button explains itself on hover — {'🔄 Refresh': True, '🔒 Seal': True, '🔒 All days': True, '✅ Verify': True, '📤 CSV': True, '🗑 Prune': True}
+PASS: the row still fits the sidebar — 330px / 342px
+PASS: Refresh pulls the list again (cache is dropped) — ('2026-10-26', 43, 86)
+PASS: day nav moves to yesterday — 2026-10-25
+PASS: day nav returns to today
+PASS: CSV button writes the day file
+PASS: Seal button writes the daily manifest
+PASS: Verify button reports a clean chain — {'t': '✅ As-run verify', 'b': 'Day: 2026-10-26\nLines: 86 · Items: 43\nmanifest: ok\nResult: the hash chain is intact, no line was edited'}
+PASS: Verify button reports a broken chain — ⚠️ As-run verify · Day: 2026-10-26
+1 problem(s) found:
+• manifest: 86 lines / 80a938cd4b9c… but the
+PASS: Prune asks first and does nothing when declined
+PASS: keep-days entry refuses to go under the legal floor
+PASS: settings carry the as-run block — {'enabled': True, 'folder': 'C:\\Users\\SOCIET~1\\AppData\\Local\\Temp\\asrun_gui_aa6r6y5k\\logs\\asrun', 'keep_days': 120}
+PASS: auto-seal fixture: yesterday is unsealed, the older day is sealed — 2026-10-23 2026-10-25
+PASS: auto-seal fixture: the older day's chain is broken — tampered
+  📂  Loaded from radio_queue.freq (0 songs in queue, 0 in library)
+  💾  Saved → radio_queue.freq
+PASS: the tab warns about days that were never sealed — 2026-10-25: 1 items · 0:01:40 on air · 🔗 chain intact | ⚠️ 1 day(s) never sealed (2026-10-25) — press Seal or run asrun.py --seal-all
+PASS: auto-seal seals the earlier day with no manifest — 2026-10-25
+PASS: auto-seal remembers it already ran today (the poller will not repeat it) — 2026-10-26
+PASS: once sealed, the warning is gone — 2026-10-25: 1 items · 0:01:40 on air · 🔗 chain intact | ⚠️ 2026-10-23: the hash chain is broken — refusing to seal over it (the old evidence is kept; check with
+PASS: the sealed day verifies clean — clean
+PASS: the Seal-all button refuses the broken day
+PASS: …and the toast names the day it refused — ['⚠️ Could not seal 1 day(s) — 2026-10-23: 2026-10-23: the hash chain is broken — refusing to seal over it (the old evidence is kept; check with --verify-all)']
+PASS: the broken day is still reported as tampered — tampered
+  📂  Loaded from radio_queue.freq (0 songs in queue, 0 in library)
+  💾  Saved → radio_queue.freq
+PASS: restore re-points the log and the switch — True 200 True
+PASS: restore leaves the switch OFF when the file says so
+PASS: an item can be left open
+  💾  Saved → radio_queue.freq
+PASS: closing the app closes the open item as 'stopped' — [('ค้างไว้ตอนปิด', 'stopped')]
+PASS: closing the app seals today's manifest
+
+105/105 passed

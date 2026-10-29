@@ -1,0 +1,74 @@
+pygame-ce 2.5.8 (SDL 2.32.10, Python 3.14.6)
+PASS: four end modes are defined — ('auto', 'break', 'stop', 'break_stop')
+PASS: a song starts on auto
+PASS: every mode lands on its own song
+  💾  Saved → C:\Users\SOCIET~1\AppData\Local\Temp\endmode_files_rdm_pz9n\playlist.freq
+  📂  Loaded from C:\Users\SOCIET~1\AppData\Local\Temp\endmode_files_rdm_pz9n\playlist.freq (4 songs in queue, 0 in library)
+PASS: the .freq round trip keeps every end mode — ['auto', 'break', 'stop', 'break_stop']
+PASS: the round trip keeps the songs themselves
+PASS: an unknown mode is read as-is by the model (the UI clamps it)
+  💾  Saved → radio_queue.freq
+PASS: the list is virtualized and has rows drawn — 5 drawn
+PASS: a row carries exactly one end mark — {'auto'}
+PASS: the three action icons are baked from the operator's SVGs — [('break', 'play_normally.png'), ('break_stop', 'ads_jingle_then_stop.png'), ('stop', 'stop_immediately.png')]
+PASS: the mark is a drawn icon, not a font glyph — ['image']
+PASS: …one canvas item per row (the shared, anti-aliased icon) — ['image']
+PASS: …reused from the cache, not re-rendered per row
+PASS: no text item renders the mark any more — ['⏸️', '🎵', '10:10:21–10:13:21', '03:00', 'Song 0', 'Artist']
+PASS: the mark stays inside its own column — [(352, 26, 364, 42)]
+PASS: the mark is tall enough to read (≥ 12 px) — [(352, 26, 364, 42)]
+PASS: the mark column sits at the card's right edge — 324..364 of 378
+PASS: a row still costs ONE canvas item per column (plus the mark) — 8 items
+PASS: a press on the mark cycles to 'break' — auto -> break
+PASS: …and paints that row only (no rebuild) — 0 rebuild(s)
+PASS: …drawing the break mark (play icon) — {'break'} ['image']
+PASS: …and saying so in a toast — ['🎯 Ads/jingle after this song, then continue']
+PASS: a second press cycles to 'stop'
+PASS: …drawing the stop mark (square)
+PASS: a third press cycles to 'break_stop'
+PASS: …drawn with the ads-then-stop icon — {'break_stop'}
+PASS: …and stays inside its column — [(348, 26, 364, 42)]
+PASS: a fourth press is back to 'auto'
+PASS: a missing icon file falls back to the shape the app draws — [(352, 26, 364, 42)]
+PASS: …and the artwork comes back once the folder is right — [(348, 26, 364, 42)]
+PASS: a double click on the mark never starts the song — []
+PASS: …a double click on the row still does — [0]
+PASS: a press on the row itself still selects it — selected=0 mode=auto
+PASS: 'break': the ad airs even though the interval is not due — ['C:\\Users\\SOCIET~1\\AppData\\Local\\Temp\\endmode_files_rdm_pz9n\\ad1.wav']
+PASS: 'break': the rundown is still on this song
+
+  🎵  Now playing: Song 1 — Artist
+     ⏱️  Duration: 03:00
+     📍  Position: 2/6
+
+  🎵  Now playing: Song 1 — Artist
+     ⏱️  Duration: 03:00
+     📍  Position: 2/6
+PASS: 'break': then the next song plays — index=1
+PASS: 'stop': no ad airs — ['<stop>']
+PASS: 'stop': playback stops
+PASS: 'stop': the rundown does not advance
+PASS: 'stop': the operator is told — ⏹ Stopped — end of this song
+PASS: 'break_stop': the ad airs first — ['C:\\Users\\SOCIET~1\\AppData\\Local\\Temp\\endmode_files_rdm_pz9n\\ad1.wav']
+PASS: 'break_stop': the stop is remembered for after the break
+PASS: 'break_stop': then the rundown stops
+PASS: 'break_stop': and the song it ended on is still current — 2
+PASS: 'break_stop' with no break available still stops — ['<stop>']
+
+  🎵  Now playing: Song 5 — Artist
+     ⏱️  Duration: 03:00
+     📍  Position: 6/6
+
+  🎵  Now playing: Song 5 — Artist
+     ⏱️  Duration: 03:00
+     📍  Position: 6/6
+PASS: a stale 'stop after break' flag is dropped, not fired — playing=True index=5
+PASS: 'auto' still honors the ad interval — ['C:\\Users\\SOCIET~1\\AppData\\Local\\Temp\\endmode_files_rdm_pz9n\\ad1.wav']
+PASS: crossfade is not armed for a row that ends the rundown — []
+PASS: …but is armed for a normal row — [1]
+PASS: 400 songs: the rebuild only draws the viewport — 5 rows drawn
+PASS: 400 songs: the rebuild stays fast — 130 ms
+PASS: 400 songs: a mark click repaints ONE row — 0 rebuild(s), mode=break
+PASS: 400 songs: the click is instant — 1 ms
+
+52/52 passed

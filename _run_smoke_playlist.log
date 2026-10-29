@@ -1,0 +1,52 @@
+pygame-ce 2.5.8 (SDL 2.32.10, Python 3.14.6)
+  ✅  Added: เพลงร่วม — ศิลปิน
+  ✅  Added: เพลง A — ศิลปิน A
+  📊  Total added: 2 songs
+PASS: read_playlist reads the songs of another file — 2
+PASS: import appends instead of replacing — 3
+PASS: import reports what it added — {'added': 2, 'skipped': 0, 'added_ids': ['69b78b89', '30200682']}
+PASS: the playing item keeps its slot
+  📊  Total added: 0 songs
+PASS: importing the same file twice adds nothing — {'added': 0, 'skipped': 2, 'added_ids': []}
+PASS: import left the source file byte-identical
+PASS: the imported songs land in the library too — ['เพลงร่วม', 'เพลง A']
+  📊  Total added: 0 songs
+PASS: duplicates inside the batch itself are counted once — {'added': 0, 'skipped': 4, 'added_ids': []}
+PASS: YouTube items are recognised by URL — ('youtube', 'https://youtu.be/abc123')
+  ⚠️  Cannot read playlist: C:\Users\SOCIET~1\AppData\Local\Temp\playlists_jyfn0fn5\nope.freq
+PASS: a missing file yields no songs instead of raising
+  ⚠️  Cannot read playlist: C:\Users\SOCIET~1\AppData\Local\Temp\playlists_jyfn0fn5\broken.freq
+PASS: a corrupt file yields no songs instead of raising
+PASS: an empty playlist is read as zero songs
+  🆕  New playlist — queue emptied (library, history and presets kept)
+PASS: new_playlist empties the queue and clears the current index
+PASS: new_playlist keeps the library, history and presets
+PASS: new_playlist points Save back at the default file — radio_queue.freq
+PASS: new_playlist wrote nothing to disk
+  💾  Saved → radio_queue.freq
+PASS: toolbar has the New playlist button
+PASS: toolbar has the Import button
+PASS: both buttons sit next to Open/Save — .!ctkframe.!ctkframe
+PASS: Ctrl+N and Ctrl+I are bound
+  ✅  Added: เพลงร่วม — ศิลปิน
+  ✅  Added: เพลง A — ศิลปิน A
+  ✅  Added: เพลง B — ศิลปิน B
+  ✅  Added: YT — ช่อง
+  📊  Total added: 4 songs
+PASS: the Import button appends both files' songs — ['เปิดอยู่', 'เพลงร่วม', 'เพลง A', 'เพลง B', 'YT']
+PASS: the item on air is still first
+PASS: the toast reports the import — ['📥 Imported 4 song(s)']
+  📊  Total added: 0 songs
+PASS: a second import adds nothing — 5 ['📥 Imported 0 song(s) · skipped 4 duplicate(s)']
+  ⚠️  Cannot read playlist: C:\Users\SOCIET~1\AppData\Local\Temp\playlists_jyfn0fn5\broken.freq
+PASS: an unreadable file is reported, not silently ignored — ['No songs could be read from the selected file(s):\nbroken.freq']
+PASS: an unreadable file leaves the queue exactly as it was — 5
+PASS: an empty playlist is reported and changes nothing — ['No songs could be read from the selected file(s):\nempty.freq']
+  🆕  New playlist — queue emptied (library, history and presets kept)
+PASS: the New button empties the queue — 0
+PASS: New keeps the library, history and presets — 5 1
+PASS: New resets the save target to the default file — radio_queue.freq
+PASS: New does not touch the playlist that was open
+PASS: New says what it did — ['🆕 New playlist — the queue is empty (library/history kept)']
+
+32/32 passed

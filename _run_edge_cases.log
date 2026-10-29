@@ -1,0 +1,639 @@
+pygame-ce 2.5.8 (SDL 2.32.10, Python 3.14.6)
+
+=== Edge-case suite — engine: wasapi ===
+
+  ✅ [native] render_pause semantics — buffered counts frames — accepted=22050 buffered=22050
+  ✅ [native] render_pause semantics — emitted frozen while paused — emitted 16350 → 16350
+  ✅ [native] render_pause semantics — ring intact during pause — buffered=5700 frames
+  ✅ [native] render_pause semantics — resume continues — emitted 16350 → 22050
+
+-- Auto-Gain + reconnect-backoff logic --
+  ✅ auto-gain neutral at target — ×1.000000
+  ✅ auto-gain +4 dB math
+  ✅ auto-gain clamps boost at +6 dB
+  ✅ auto-gain clamps cut at -6 dB
+  ✅ reconnect ladder — (5, 15, 30, 60)
+  ✅ reconnect escalates
+  ✅ reconnect caps at 60s
+  🎚️  Crossfade armed (WASAPI): overlap 4.0s, gain B ×1.00
+  ✅ [wasapi] B shorter than fade (2s B, 4s fade) — fade clamped to B — fade=2.00s
+  🎚️  Crossfade armed (WASAPI): overlap 4.0s, gain B ×1.00
+  ✅ [wasapi] single-track queue — handoff fired exactly once — fired=1
+  ✅ [wasapi] single-track queue — state clean after handoff
+  ✅ [wasapi] pause/resume around trigger — position frozen while paused — pos 0.64s → 0.64s
+  ✅ [wasapi] pause/resume around trigger — no render while paused
+  ✅ [wasapi] pause/resume around trigger — resume continues
+  🎚️  Crossfade armed (WASAPI): overlap 4.0s, gain B ×1.00
+  ✅ [wasapi] seek after arm invalidates mix — crossfade state cleared after seek
+  ✅ [wasapi] seek after arm invalidates mix — no stale handoff — fired=0
+  ✅ [wasapi] stop during pending crossfade — no handoff after stop
+  ✅ [wasapi] stop during pending crossfade — engine fully reset
+  ✅ [wasapi] stop during pending crossfade — ring cleared
+  🎚️  Crossfade armed (WASAPI): overlap 4.0s, gain B ×1.00
+  ✅ [wasapi] set_next_track twice (re-arm) — armed to the LAST queued track — armed=raceB2.mp3
+  ✅ [wasapi] Auto-Gain applies measured loudness — gain ×1.710 vs expected ×1.710 (-18.7 LUFS)
+  ✅ [wasapi] Auto-Gain applies measured loudness — boost applied to quiet tone — ×1.710
+  ✅ [wasapi] Auto-Gain applies measured loudness — disable resets to neutral
+  ✅ [decoder] module available
+  ✅ [decoder] total_frames — got 88200
+  ✅ [decoder] streaming complete — 88200 frames in 20 chunks
+  ✅ [decoder] seek + read — 400 bytes
+  ✅ [eq] clamp to +-12 — (12.0, -12.0, 5.0)
+  ✅ [eq] flat reset
+  ✅ [eq] player set/get — (6.0, -3.0, 0.0)
+  ✅ [eq] player reset
+  ✅ [devloss] initial play — ok=True pos=0.54
+  ⚠️  Output device lost — migrating to the default endpoint
+  ⚠️  Output device lost — migrating to the default endpoint
+  ⚠️  Output device lost — migrating to the default endpoint
+  ✅ [devloss] 3 rapid recoveries
+  ✅ [devloss] playback after stress — ok=True
+  ✅ [skipcap] queue of 1 terminates — skips=1
+  ✅ [skipcap] queue of 3 terminates — skips=3
+  ✅ [skipcap] queue of 10 terminates — skips=10
+  ✅ [relay] backoff ladder — [5, 15, 30, 60, 60, 60, 60, 60]
+  ✅ [native] use_file accepted
+  ✅ [native] source realtime-paced — fed=78939 frames
+  ✅ [native] source feeds after seek
+  ✅ [native] clear() kills source
+  ✅ [stream] pump starts
+  ✅ [stream] header delivered — b'HDR\\r\\n\\'
+  ✅ [stream] PCM delivered — 882011 bytes
+  ✅ [stream] EOF state — 2
+  ✅ [stream] stop -> idle — 0
+  ✅ [aircheck] available
+  ✅ [aircheck] start returns path — C:\Users\SOCIET~1\AppData\Local\Temp\_t_aircheck_mic.wav
+  ✅ [aircheck] recording flag
+  ✅ [aircheck] stopped
+  ✅ [aircheck] wav has audio — 30720 frames @ 48000 Hz (0.64 s)
+  ✅ [aircheck2] both sources recording
+  ✅ [aircheck2] dual files created
+  ✅ [aircheck2] mp3 export — C:\Users\SOCIET~1\AppData\Local\Temp\aircheck_test2.mp3 C:\Users\SOCIET~1\AppData\Local\Temp\aircheck_test2_mic.mp3
+  ✅ [aircheck2] list_files — ['aircheck_test2_mic.mp3', 'aircheck_test2.mp3']
+  ✅ [aircheck2] clean_old — removed 1
+  ✅ [aircheck] schedule windows — in=True
+  ✅ [aircheck] schedule round-trip
+SILENCE (dry-run): output silent for 3.0s (peak 0.0000 <= 0.0040)
+SILENCE (dry-run): output silent for 1.5s (peak 0.0040 <= 0.0040)
+SILENCE (dry-run): output silent for 2.0s (peak 0.0000 <= 0.0040)
+SILENCE (dry-run): output silent for 2.0s (peak 0.0000 <= 0.0040)
+SILENCE (dry-run): output silent for 2.0s (peak 0.0000 <= 0.0040)
+SILENCE (dry-run): output silent for 2.0s (peak 0.0000 <= 0.0040)
+SILENCE (dry-run): output silent for 2.0s (peak 0.0000 <= 0.0040)
+SILENCE (dry-run): output silent for 3.0s (peak 0.0000 <= 0.0050)
+SILENCE (dry-run): output silent for 1.5s (peak 0.0000 <= 0.0040)
+on_silence callback failed
+Traceback (most recent call last):
+  File "C:\Users\SocieticsTv\Documents\SFM\SFM\silence_sentinel.py", line 197, in _fire
+    callback(info)
+    ~~~~~~~~^^^^^^
+  File "C:\Users\SocieticsTv\Documents\SFM\SFM\test_silence_sentinel.py", line 220, in boom
+    raise RuntimeError("handler exploded")
+RuntimeError: handler exploded
+SILENCE (dry-run): output silent for 1.0s (peak 0.0000 <= 0.0040)
+  ✅ [sentinel] disabled by default → never fires
+  ✅ [sentinel] disabled → snapshot enabled=False
+  ✅ [sentinel] quiet 2.5s < 3s → no fire yet
+  ✅ [sentinel] dead air 3.5s → fired
+  ✅ [sentinel] event is dry-run
+  ✅ [sentinel] silent_for ≈ window
+  ✅ [sentinel] peak/threshold recorded
+  ✅ [sentinel] quiet passage (loud every 0.5s) → no fire
+  ✅ [sentinel] levels=None (no tap data) → never fires
+  ✅ [sentinel] stopped playback + zeros → not dead air, no fire
+  ✅ [sentinel] mic on air + silent music → no fire
+  ✅ [sentinel] peak == threshold counts as silence
+  ✅ [sentinel] peak just above threshold = audio, no fire
+  ✅ [sentinel] 120s dead air, 30s gap → one alert per gap (4)
+  ✅ [sentinel] internal counter matches callbacks
+  ✅ [sentinel] gap > dead-air length → exactly 1 alert
+  ✅ [sentinel] config change resets window → no instant fire
+  ✅ [sentinel] fires again after full window post-re-arm
+  ✅ [sentinel] stop() → no more events
+  ✅ [sentinel] stop() → disabled + window cleared
+  ✅ [sentinel] callback exception never escapes observe()
+  ✅ [sentinel] sentinel still counting after callback failure
+  ✅ [dry-run] sentinel imports no playback module
+  ✅ [dry-run] sentinel never calls an engine-shaped API
+  ✅ [dry-run] sentinel exposes no playback-mutating method
+  ✅ [gui] _update_progress taps the loopback exactly once
+  ✅ [gui] _update_progress feeds the sentinel
+  ✅ [gui] sentinel default is OFF (env-gated)
+  ✅ [gui-settings] sentinel_enabled_var
+  ✅ [gui-settings] sentinel_seconds_entry
+  ✅ [gui-settings] sentinel_threshold_slider
+  ✅ [gui-settings] sentinel_events_label
+  ✅ [gui-settings] _on_sentinel_toggle
+  ✅ [gui-settings] _on_sentinel_seconds
+  ✅ [gui-settings] _on_sentinel_threshold
+  ✅ [gui-settings] _refresh_sentinel_status
+  ✅ [gui-settings] "silence_sentinel": {
+  ✅ [gui-settings] settings.get("silence_sentinel", {})
+  ✅ [gui-settings] threshold math (-48 dB default)
+  ✅ [sentinel] real-clock smoke: fires with monotonic clock
+plugin broken_syntax.py failed to load: invalid syntax (broken_syntax.py, line 1)
+plugin bad failed in on_start
+Traceback (most recent call last):
+  File "C:\Users\SocieticsTv\Documents\SFM\SFM\plugin_system.py", line 219, in _run_hooks
+    hook(self._ctx, **payload)
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\SOCIET~1\AppData\Local\Temp\freq_plugin_test_yv7ara2j\bad.py", line 2, in on_start
+    raise RuntimeError('boom')
+RuntimeError: boom
+plugin flaky failed in on_track_finished
+Traceback (most recent call last):
+  File "C:\Users\SocieticsTv\Documents\SFM\SFM\plugin_system.py", line 219, in _run_hooks
+    hook(self._ctx, **payload)
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\SOCIET~1\AppData\Local\Temp\freq_plugin_test_l5z8hpqx\flaky.py", line 4, in on_track_finished
+    raise ValueError('always fails')
+ValueError: always fails
+plugin flaky failed in on_track_finished
+Traceback (most recent call last):
+  File "C:\Users\SocieticsTv\Documents\SFM\SFM\plugin_system.py", line 219, in _run_hooks
+    hook(self._ctx, **payload)
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\SOCIET~1\AppData\Local\Temp\freq_plugin_test_l5z8hpqx\flaky.py", line 4, in on_track_finished
+    raise ValueError('always fails')
+ValueError: always fails
+plugin flaky failed in on_track_finished
+Traceback (most recent call last):
+  File "C:\Users\SocieticsTv\Documents\SFM\SFM\plugin_system.py", line 219, in _run_hooks
+    hook(self._ctx, **payload)
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\SOCIET~1\AppData\Local\Temp\freq_plugin_test_l5z8hpqx\flaky.py", line 4, in on_track_finished
+    raise ValueError('always fails')
+ValueError: always fails
+plugin flaky disabled after 3 consecutive failures
+plugin moody failed in on_start
+Traceback (most recent call last):
+  File "C:\Users\SocieticsTv\Documents\SFM\SFM\plugin_system.py", line 219, in _run_hooks
+    hook(self._ctx, **payload)
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\SOCIET~1\AppData\Local\Temp\freq_plugin_test_ugn4k02i\moody.py", line 5, in on_start
+    raise RuntimeError('first time fails')
+RuntimeError: first time fails
+  ✅ [load] valid plugin loaded
+  ✅ [load] version read from constants
+  ✅ [load] on_start hook ran and ctx.log worked
+  ✅ [load] broken plugin skipped, app survives
+  ✅ [load] load error surfaced in status
+  ✅ [load] only .py files, _-prefixed ignored
+  ✅ [ctx] emit returns a dispatcher thread
+  ✅ [ctx] hook wrote its payload
+  ✅ [ctx] song data arrives intact
+  ✅ [ctx] snapshot carries plugin_api
+  ✅ [ctx] ctx.notify reaches the app sink
+  ✅ [ctx] even a broken snapshot returns plugin_api
+  ✅ [fail] other plugin still ran after one crashed
+  ✅ [fail] error counted, plugin still enabled (1st failure)
+  ✅ [fail] hook called exactly 3 times then auto-disabled
+  ✅ [fail] plugin disabled after 3 consecutive failures
+  ✅ [fail] consecutive counter capped at threshold
+  ✅ [fail] success resets the consecutive counter
+  ✅ [dispatch] emit returns before the hook finishes
+  ✅ [dispatch] unknown event returns None
+  ✅ [dispatch] event outside HOOKS never dispatched
+  ✅ [state] set_enabled flips the map
+  ✅ [state] status never leaks module objects
+  ✅ [state] status rows are JSON-safe primitives
+  ✅ [state] load_all twice does not duplicate
+  ✅ [observe-only] SDK imports no playback module
+  ✅ [observe-only] PluginContext surface is notify/log/snapshot only
+  ✅ [observe-only] manager exposes no playback-shaped method
+  ✅ [gui] SDK imported
+  ✅ [gui] on_start fired after load
+  ✅ [gui] on_track_started passes _song_info dict
+  ✅ [gui] on_track_finished passes _song_info dict
+  ✅ [gui] _song_info returns a plain dict copy
+  ✅ [gui] destroy fires on_shutdown with a join timeout
+  ✅ [gui] plugin notify goes to the status line
+  ✅ [gui-panel] panel rebuilds plugin rows
+  ✅ [gui-panel] per-plugin switch handler
+  ✅ [gui-panel] Reload rescans the folder
+  ✅ [gui-panel] Open folder button wired
+  ✅ [gui-panel] panel refreshed at build + restore
+  ✅ [gui-panel] switch state persists in .freq collect
+  ✅ [gui-panel] .freq restore applies enabled map
+  ✅ [gui-panel] restore refreshes only when the panel exists
+  ✅ [version-sync] sync stage exists
+  ✅ [version-sync] every run syncs before building
+  ✅ [version-sync] --sync-only flag available
+  ✅ [version-sync] --sync-version exits without building
+  ✅ [version-sync] version.txt rewritten from installer.iss
+  ✅ [version-sync] release notes verified
+  ✅ [version-sync] missing-notes warning mentions fallback
+  ✅ [mic-dialog] default size fits quad-mic rows
+  ✅ [mic-dialog] resizable with a sane floor
+  ✅ [mic-dialog] user may resize
+  ✅ [mic-dialog] Add button locked to the bottom
+  ✅ [mic-dialog] form rows scroll
+  ✅ [mic-memory] memory initialized
+  ✅ [mic-memory] Song carries stable endpoint ids (radio_manager.py)
+  ✅ [mic-memory] playback prefers the stored endpoint id (whitelisted)
+  ✅ [mic-memory] Add-to-queue records the 4-slot endpoint list
+  ✅ [mic-memory] fallback recorder receives the stable endpoint
+  ✅ [mic-memory] .freq collect includes mic memory
+  ✅ [mic-memory] .freq restore reads mic memory
+  ✅ [mic-memory] stale device names whitelisted before prefill
+  ✅ [mic-memory] gains restored per slot
+  ✅ [mic-memory] Add writes choices for next time
+  ✅ [mic-memory] gains saved parsed+clamped
+  ✅ [mic-dsp] engine suppression defaults to OFF
+  ✅ [mic-dsp] engine compressor defaults to OFF
+  ✅ [mic-dsp] engine limiter defaults to OFF
+  ✅ [mic-dsp] engine de-esser defaults to OFF
+  ✅ [mic-dsp] bypass gate requires EVERY stage off (lone stage must run)
+  ✅ [mic-dsp] gate includes the 5th+6th+7th stages
+  ✅ [mic-dsp] bypass branch keeps the legacy path
+  ✅ [mic-dsp] suppression API present
+  ✅ [mic-dsp] compressor API present
+  ✅ [mic-dsp] limiter API present
+  ✅ [mic-dsp] de-esser API present
+  ✅ [mic-dsp] de-esser getter present
+  ✅ [mic-dsp] mic EQ API present
+  ✅ [mic-dsp] mic EQ getter present
+  ✅ [mic-dsp] echo API present
+  ✅ [mic-dsp] echo getter present
+  ✅ [mic-dsp] gain trim API present
+  ✅ [mic-dsp] gain trim getter present
+  ✅ [mic-dsp] upward compressor API present
+  ✅ [mic-dsp] upward compressor getter present
+  ✅ [mic-dsp] expander API present
+  ✅ [mic-dsp] expander getter present
+  ✅ [mic-dsp] gain setter in C++
+  ✅ [mic-dsp] upcomp setter in C++
+  ✅ [mic-dsp] expander setter in C++
+  ✅ [mic-dsp] gain stage runs in the render chain
+  ✅ [mic-dsp] upcomp stage runs in the render chain
+  ✅ [mic-dsp] expander stage runs in the render chain
+  ✅ [mic-dsp] gate includes ALL nine stages
+  ✅ [mic-dsp] mic EQ setter in C++
+  ✅ [mic-dsp] echo setter in C++
+  ✅ [mic-dsp] mic EQ stage runs in the render chain
+  ✅ [mic-dsp] echo stage runs in the render chain
+  ✅ [mic-dsp] echo delay ring sized (~181 ms)
+  ✅ [mic-dsp] player chain bridge present
+  ✅ [mic-dsp] stage->API registry present
+  ✅ [mic-dsp] de-esser registered in the player bridge
+  ✅ [mic-dsp] mic EQ registered in the player bridge
+  ✅ [mic-dsp] echo registered in the player bridge
+  ✅ [mic-dsp] gain trim registered in the player bridge
+  ✅ [mic-dsp] upward compressor registered in the player bridge
+  ✅ [mic-dsp] expander registered in the player bridge
+  ✅ [mic-dsp] stages 5-6 default OFF in chain state
+  ✅ [mic-dsp] stages 7-8 default OFF
+  ✅ [mic-dsp] stage 9 default OFF
+  ✅ [mic-dsp] late-created engines inherit the whole chain
+  ✅ [mic-dsp] back-compat alias kept
+  ✅ [mic-dsp] .freq collect includes the chain
+  ✅ [mic-dsp] .freq restore applies the chain
+  ✅ [mic-dsp] OBS-style dialog wired
+  ✅ [mic-dsp] status line wired
+  ✅ [mic-dsp] .freq still persists the mic chain after its Settings UI moved
+  ✅ [mic-dsp] de-esser described in dialog
+  ✅ [mic-dsp] mic EQ row in the dialog
+  ✅ [mic-dsp] echo row in the dialog
+  ✅ [mic-dsp] gain row in the dialog
+  ✅ [mic-dsp] upcomp row in the dialog
+  ✅ [mic-dsp] expander row in the dialog
+  ✅ [mic-dsp] upcomp described
+  ✅ [mic-dsp] expander described
+  ✅ [mic-dsp] gain described
+  ✅ [mic-dsp] mic EQ described in the dialog
+  ✅ [mic-dsp] .freq restore covers all six stages
+  ✅ [mic-dsp] documented 9-stage chain order
+  ✅ [mic-params] param store present
+  ✅ [mic-params] param setter in C++
+  ✅ [mic-params] param getter in C++
+  ✅ [mic-params] param setter exported
+  ✅ [mic-params] player bridge for parameters
+  ✅ [mic-params] gate floor parameter consumed
+  ✅ [mic-params] echo delay length is parameter-driven
+  ✅ [mic-params] slider definitions in the dialog
+  ✅ [mic-params] live-slider note in the dialog header
+  ✅ [mic-params] .freq collect keeps the flag
+  ✅ [mic-params] OBS two-pane layout (list left)
+  ✅ [mic-params] parameter editor right
+  ✅ [mic-params] Immediate-mode toggle wired
+  ✅ [mic-params] Immediate flag persisted on the app
+  ✅ [mic-params] .freq collect keeps the flag
+  ✅ [mic-params] .freq restore keeps the flag
+  ✅ [mic-params] slider pushes on BUTTON RELEASE (stability)
+  ✅ [mic-params] release pushes only in Immediate mode
+  ✅ [mic-params] per-stage Defaults table
+  ✅ [mic-params] dialog opens on the first stage
+  ✅ [mic-params] stage snapshot updated on every push (dots never stale)
+  ✅ [mic-params] Defaults never re-enables a disabled stage
+  ✅ [mic-params] dots refresh in BOTH Immediate modes
+  ✅ [mic-params] dots refresh after the editor builds
+  ✅ [mic-dsp] mic EQ setter in C++
+  ✅ [mic-dsp] echo setter in C++
+  ✅ [mic-dsp] bypass gate includes ALL nine stages
+  ✅ [mic-dsp] mic EQ stage runs in the render chain
+  ✅ [mic-dsp] echo stage runs in the render chain
+  ✅ [mic-dsp] echo delay ring sized
+  ✅ [mic-dsp] mic EQ exported to Python
+  ✅ [mic-dsp] echo exported to Python
+  ✅ [mic-dsp] mic EQ row in the filters dialog
+  ✅ [mic-dsp] echo row in the filters dialog
+  ✅ [mic-dsp] mic EQ described in the dialog
+  ✅ [vu-mic] progress skipped in fallback, VU still reached
+  ✅ [vu-mic] VU active includes the mic-fallback stage
+  ✅ [vu-mic] live mic opens retry once before falling back
+  ✅ [vu-mic] retry logged
+  ✅ [hotkeys] typing guard exists
+  ✅ [hotkeys] space is guarded
+  ✅ [hotkeys] next-track hotkey is guarded
+  ✅ [hotkeys] prev-track hotkey is guarded
+  ✅ [hotkeys] mute hotkey is guarded
+  ✅ [hotkeys] guard checks widget CLASS strings (CTk inner widgets)
+  ✅ [hotkeys] rebindable Keys-tab plain keys are guarded
+  ✅ [hotkeys] modifier combos bind raw (no typing guard on combos) — elif "+" in key:
+                # Modifier combos (Ctrl+S, 
+  ✅ [bcheck] readiness rows probe exists
+  ✅ [bcheck] check runner wired
+  ✅ [bcheck] Mic Doctor dialog wired
+  ✅ [bcheck] check documented as mutating nothing
+  ✅ [bcheck] check button in Settings
+  ✅ [bcheck] doctor button in Settings
+  ✅ [bcheck] doctor probes each mic in an ISOLATED capture (never live sessions)
+  ✅ [bcheck] probing runs on the main thread via after() — no Tk from workers
+  ✅ [bcheck] peak is accumulated
+  ✅ [bcheck] silent verdict string present
+  ✅ [bcheck] all-clear summary present
+  ✅ [qrow] rows kept as light registry handles
+  ✅ [qrow] every song still carries its ORIGINAL queue index
+  ✅ [qrow] one canvas for the whole list
+  ✅ [qrow] canvas is as tall as the list (native scrolling stays intact)
+  ✅ [qrow] clicks are mapped from canvas geometry
+  ✅ [qrow] row = y // row pitch
+  ✅ [qrow] a row is canvas items, not widgets
+  ✅ [qrow] card body is ONE rounded polygon
+  ✅ [qrow] rounded corners are built, not faked
+  ✅ [qrow] a card is never narrower than 130 px
+  ✅ [qrow] cards sit 15 px apart
+  ✅ [qrow] scroll pitch = card height + gap
+  ✅ [qrow] a click in the 15 px gap is a background click
+  ✅ [qrow] only the visible window is drawn (and only when it moved)
+  ✅ [qrow] overscan hides redraws during scroll
+  ✅ [qrow] scroll position is followed on a timer
+  ✅ [qrow] single rows repaint in place
+  ✅ [qrow] the start/stop and length columns are reserved once
+  ✅ [qrow] start/stop clock stamps are computed
+  ✅ [qrow] a row's clock window comes from the schedule
+  ✅ [qrow] the column is re-stamped on its own
+  ✅ [qrow] the minute roll is tracked
+  ✅ [qrow] the roll re-stamps the drawn rows
+  ✅ [qrow] a narrow card drops the clock instead of squeezing it in
+  ✅ [qrow] the length stays the rightmost column
+  ✅ [qrow] jingle/ad lengths are measured, not guessed
+  ✅ [qrow] jingle/ad breaks are planned ahead
+  ✅ [qrow] the anthem folds in at its fixed moment
+  ✅ [qrow] a transfer still running delays the rows after it
+  ✅ [qrow] the header line names the next inserts
+  ✅ [qrow] one rundown feeds the row windows AND the events
+  ✅ [qrow] download / convert report their own clock time
+  ✅ [qrow] a conversion ETA only exists once one was measured
+  ✅ [qrow] the conversion that ended is timed for the next estimate
+  ✅ [qrow] a running transfer re-stamps the queue at most once a second
+  ✅ [qrow] the rundown events are part of the view
+  ✅ [qrow] an anthem that lands inside a song extends that row
+  ✅ [qrow] the header line exists for jingle/ad/anthem times
+  ✅ [qrow] a finished transfer clears the wait
+  ✅ [qrow] an unknown anthem length is not invented
+  ✅ [qrow] playing row is re-marked in place
+  ✅ [qrow] selection rebuild deferred past double-click window
+  ✅ [qrow] the deferred repaint keeps the scroll position
+  ✅ [qrow] double-click play handler wired
+  ✅ [qrow] pending token read via __dict__ (tk 3.14 getattr-safe)
+  ✅ [qrow] queue renderer found
+  ✅ [qrow] rebuild creates no widget per song — a per-row widget / binding storm is back
+  ✅ [qrow] rebuild no longer schedules row batches — batched row creation is back
+  ✅ [qrow] the row painter creates no CTk widget — CTk canvas-per-widget rows are back
+  ✅ [qrow] the clock column is stamped from the schedule — the painter formatted a time itself instead of reading the schedule
+  ✅ [qrow] the non-empty path builds no CTk widget at all — CTk widgets are created per song again (only the empty state may)
+  ✅ [qrow] drawing is bounded by the viewport, not the queue — the painter loops over the whole queue again
+  ✅ [qrow] _play_index marks in place instead of rebuilding
+  ✅ [qrow] _toggle_play does not rebuild the queue — full rebuild on a play/pause/track-change path
+  ✅ [qrow] _on_track_finished does not rebuild the queue — full rebuild on a play/pause/track-change path
+  ✅ [qrow] _next_track does not rebuild the queue — full rebuild on a play/pause/track-change path
+  ✅ [qrow] _prev_track does not rebuild the queue — full rebuild on a play/pause/track-change path
+  ✅ [stable] Tk callback errors are contained, not fatal
+  ✅ [stable] contained errors are logged with their traceback
+  ✅ [stable] song lengths are read through one total helper
+  ✅ [stable] NaN / inf / negative durations degrade to 0, never raise
+  ✅ [stable] the duration formatter cannot be poisoned by bad data
+  ✅ [stable] the queue header sum is safe for None/NaN durations
+  ✅ [stable] the queue filter never calls .lower() on None
+  ✅ [stable] queue rebuilds from a worker are re-dispatched (Tk is main-thread only)
+  ✅ [stable] the worker call lands on the UI thread
+  ✅ [stable] one unreadable song cannot blank the whole list
+  ✅ [stable] the scroll poller stops itself on a dead window
+  ✅ [stable] destroy() cancels the pending queue poller
+  ✅ [stable] scroll poller found
+  ✅ [stable] a failed repaint does not stop the poller — the re-arm sits outside the guard
+  ✅ [stable] destroy() stops the poller before teardown — poller survives destroy
+  ✅ [qfilter] Filter button exists
+  ✅ [qfilter] visibility follows selection
+  ✅ [qfilter] hidden until a row is selected
+  ✅ [qfilter] selection -> dialog router wired
+  ✅ [qfilter] mic rows route to the native chain dialog
+  ✅ [qfilter] song Filters dialog wired
+  ✅ [qfilter] OBS-style 'Filters for …' title
+  ✅ [qfilter] song dialog drives the real EQ API
+  ✅ [qfilter] song dialog drives the real auto-gain API
+  ✅ [qfilter] song dialog drives the real crossfade API
+  ✅ [qfilter] rows ALWAYS paired with original index (no bare-Song path)
+  ✅ [qfilter] stats unpacks tuples unconditionally and reads durations safely
+  ✅ [qfilter] filter operates on already-paired rows
+  ✅ [qfilter] rows render with original indexes (filter-safe clicks)
+  ✅ [eqpreset] in-dialog preset applier wired
+  ✅ [eqpreset] uses the SAME preset table as Settings
+  ✅ [eqpreset] vocal preset button
+  ✅ [eqpreset] bass cut preset button
+  ✅ [eqpreset] flat preset button
+  ✅ [eqpreset] preset row exists in dialog
+  ✅ [eqpreset] documented apply-to-commit behaviour
+  ✅ [eqpreset] bass_cut in PRESETS table
+  ✅ [fmt-heal] in-place device recovery implemented
+  ✅ [fmt-heal] recovery retries while the driver settles
+  ✅ [fmt-heal] paused-path failure counter heals before dying
+  ✅ [fmt-heal] playing-path failure counter heals before dying
+  ✅ [fmt-heal] heal re-opens the SAME endpoint it was started on
+  ✅ [fmt-heal] mic capture self-heal implemented
+  ✅ [fmt-heal] mic resampler rebuilt for the NEW mix format
+  ✅ [fmt-heal] capture loop heals on device failure
+  ✅ [fmt-heal] heal path exercisable by tests
+  ✅ [asrun] module imported by the app
+  ✅ [asrun] As-run tab built
+  ✅ [asrun] tab sits in the ON AIR group
+  ✅ [asrun] created OFF before the UI
+  ✅ [asrun] begin hook exists
+  ✅ [asrun] end hook exists
+  ✅ [asrun] mic items hooked
+  ✅ [asrun] queue items hooked at _play_index
+  ✅ [asrun] _on_track_finished closes the item
+  ✅ [asrun] ad breaks hooked
+  ✅ [asrun] jingle breaks hooked
+  ✅ [asrun] anthem cut is recorded
+  ✅ [asrun] jingle cut is recorded
+  ✅ [asrun] a missing file is recorded, not swallowed
+  ✅ [asrun] a failed download is recorded
+  ✅ [asrun] going on air is recorded
+  ✅ [asrun] relay playback is recorded
+  ✅ [asrun] tab is kept current while visible
+  ✅ [asrun] CSV export wired
+  ✅ [asrun] verify wired
+  ✅ [asrun] retention wired
+  ✅ [asrun] closing the app seals the day
+  ✅ [asrun] auto-seal exists
+  ✅ [asrun] the poller auto-seals (an idle station seals itself)
+  ✅ [asrun] seal-the-whole-folder wired to the tab
+  ✅ [asrun] days that were never sealed are surfaced in the tab
+  ✅ [asrun] settings carry the as-run block
+  ✅ [asrun] line schema is versioned
+  ✅ [asrun] retention floor in the module
+  ✅ [asrun] chain verification exists
+  ✅ [asrun] daily seal exists
+  ✅ [asrun] retention pruning exists
+  ✅ [asrun] report export exists
+  ✅ [asrun] folder-wide verification exists
+  ✅ [asrun] folder-wide sealing exists
+  ✅ [asrun] earlier days seal themselves
+  ✅ [asrun] unsealed earlier days are computable
+  ✅ [asrun] one-line status for the tab
+  ✅ [asrun] the command line exists
+  ✅ [asrun] CLI flag --verify-all
+  ✅ [asrun] CLI flag --seal-all
+  ✅ [asrun] maintenance has an exit code of its own
+  ✅ [asrun] a wrong command is not reported as evidence
+  ✅ [asrun] the sealed tail is recorded (prefix proof)
+  ✅ [asrun] the manifest carries a version
+  ✅ [asrun] each row links to the one before it
+  ✅ [asrun] rows are only ever APPENDED
+  ✅ [asrun] the manifest is written atomically
+  ✅ [asrun] each row is chained by hash
+  ✅ [asrun] IO failures are reported, not hidden
+  ✅ [asrun] a dead disk cannot crash playback
+  ✅ [asrun] module never imports the queue
+  ✅ [asrun] module never touches the engine
+  ✅ [asrun] module stays UI-free (testable headless)
+  ✅ [asrun] behavioural suite exists
+  ✅ [asrun] command-line suite exists (runs the real CLI)
+  ✅ [asrun] cli-suite: the suite runs asrun.py itself
+  ✅ [asrun] cli-suite: it goes through a real process
+  ✅ [asrun] cli-suite: it exercises --seal-all
+  ✅ [asrun] cli-suite: a re-chained + grown file is caught by the prefix
+  ✅ [asrun] cli-suite: it proves sealing cannot launder a rewrite
+  ✅ [asrun] cli-suite: an exit 1 must never be a crash
+  ✅ [asrun] cli-suite: it checks the manifest is left untouched
+  ✅ [playlist] the New button is on the toolbar
+  ✅ [playlist] the Import button is on the toolbar
+  ✅ [playlist] New button is wired
+  ✅ [playlist] Import button is wired
+  ✅ [playlist] New handler exists
+  ✅ [playlist] Import handler exists
+  ✅ [playlist] Ctrl+N opens a new playlist
+  ✅ [playlist] Ctrl+I imports a playlist
+  ✅ [playlist] import can take several files
+  ✅ [playlist] import reads the other file read-only
+  ✅ [playlist] import hands the songs to the model
+  ✅ [playlist] New resets the model
+  ✅ [playlist] New asks before emptying a queue
+  ✅ [playlist] new_playlist exists
+  ✅ [playlist] songs have an import identity
+  ✅ [playlist] a playlist can be read without loading it
+  ✅ [playlist] import exists on the model
+  ✅ [playlist] duplicates can be skipped
+  ✅ [playlist] import never replaces the queue (unlike Open)
+  ✅ [playlist] import does not re-apply another file's settings
+  ✅ [playlist] New never writes the playlist it just replaced
+  ✅ [playlist] New uses the model's new_playlist, not the old clear
+  📊  Total added: 0 songs
+  ✅ [playlist] re-importing a queued song is skipped — {'added': 0, 'skipped': 1, 'added_ids': []}
+  🆕  New playlist — queue emptied (library, history and presets kept)
+  ✅ [playlist] new_playlist empties only the queue — 0 1 1 {'p': ['a84427a4']}
+  ✅ [playlist] behavioural suite exists
+  ✅ [native-0926] aircheck recorder start API
+  ✅ [native-0926] aircheck recorder stop API
+  ✅ [native-0926] aircheck WAV sizes patched on stop (crash-safe file)
+  ✅ [native-0926] aircheck loopback OR mic selectable
+  ✅ [native-0926] aircheck stuck-device leak policy like native_audio_capture
+  ✅ [native-0926] stream stream start API
+  ✅ [native-0926] stream TCP sink with source-header send
+  ✅ [native-0926] stream ffmpeg stdin/stdout plumbing
+  ✅ [native-0926] stream reconnect state machine
+  ✅ [native-0926] stream ladder delay honoured from caller
+  ✅ [native-0926] stream stalled server cannot hang the thread
+  ✅ [native-0926] stream small-frame latency kept low
+  ✅ [native-0926] stream encoder owned + killed on stop
+  ✅ [native-0926] wrapper live-mix wrapper class exists
+  ✅ [native-0926] wrapper encoder resolved from bundled ffmpeg first
+  ✅ [native-0926] wrapper start() waits for real STREAMING state
+  ✅ [native-0926] wrapper ICY metadata push via admin API
+  ✅ [native-0926] wrapper metadata dedupe (no spam per poll)
+  ✅ [native-0926] wrapper module-level singleton exported
+  ✅ [native-0926] wrapper ICY metadata pushed from a named worker
+  ✅ [native-0926] wrapper metadata HTTP hop wrapped in a background fn
+  ✅ [native-0926] gui Live-mix switch exists, default OFF
+  ✅ [native-0926] gui Start routes to native path
+  ✅ [native-0926] gui native start handler
+  ✅ [native-0926] gui queue -> ICY metadata handler
+  ✅ [native-0926] gui metadata pushed on every track change
+  ✅ [native-0926] gui stop tears down the native stream
+  ✅ [native-0926] gui switch persisted in .freq
+  ✅ [native-0926] gui switch restored from .freq
+  ✅ [native-0926] gui auto air-check persisted in .freq
+  ✅ [native-0926] gui auto air-check restored from .freq
+  ✅ [native-0926] gui auto air-check driven by the 500 ms tick
+  ✅ [native-0926] gui native recorder start helper
+  ✅ [native-0926] gui native recorder stop + MP3 helper
+  ✅ [native-0926] gui manual/scheduled recordings take priority over auto
+  ✅ [native-0926] gui auto recording captures the FULL mix (loopback)
+  ✅ [native-0926] gui auto stop honours the MP3 export setting
+  ✅ [native-0926] gui auto stop prunes old recordings per keep-days
+  ✅ [native-0926] gui save+MP3+prune run on a WORKER thread (UI never blocks)
+  ✅ [native-0926] gui poll hands off to the background worker
+  ✅ [native-0926] gui on-air mic hint fallback when the engine call is unavailable
+  ✅ [native-0926] gui master chain dialog exists
+  ✅ [native-0926] gui dialog reachable from the settings page
+  ✅ [native-0926] gui dialog commits through the player bridge
+  ✅ [native-0926] gui chain persisted in .freq
+  ✅ [native-0926] gui chain restored from .freq
+  ✅ [native-0926] master-dsp master DSP implemented in the render engine
+  ✅ [native-0926] master-dsp all-OFF = byte-identical legacy path
+  ✅ [native-0926] master-dsp set API
+  ✅ [native-0926] master-dsp get API
+  ✅ [native-0926] master-dsp DSP self-test without device
+  ✅ [native-0926] master-dsp chain runs on the FINAL mix (after mic mixing)
+  ✅ [native-0926] master-dsp chain runs in the empty-ring/mic-only path too
+  ✅ [native-0926] master-dsp chain runs while paused (voice-over-paused-music)
+  ✅ [native-0926] master-dsp compressor gain math (downward, ratio-aware)
+  ✅ [vu-1018] native device-buffer peak computed in the render thread
+  ✅ [vu-1018] native meter runs on the FINAL mix (after mic mixing)
+  ✅ [vu-1018] native meter runs in the empty-ring/mic-only path too
+  ✅ [vu-1018] native levels API
+  ✅ [vu-1018] native meter self-test without a device
+  ✅ [vu-1018] native levels registered on the module
+  ✅ [vu-1018] native meter runs while paused too (voice-only path) — dst-path calls=2 (want 2)
+  ✅ [vu-1018] gui the VU asks the engine first
+  ✅ [vu-1018] gui engine meter wins over the loopback
+  ✅ [vu-1018] gui loopback kept as the fallback
+  ✅ [vu-1018] player player exposes the engine meter
+  ✅ [vu-1018] player a stale .pyd degrades to the loopback instead of raising
+  ✅ [vu-1018] meter self-test on the built module (device-free) — rc=0
+  ✅ [vu-1018] render_levels exported by the built module
+  ✅ [native-0926] master-py player re-pushes chain after every engine swap
+  ✅ [native-0926] master-py player bridge apply
+  ✅ [native-0926] release master chain verified by release pipeline
+  ✅ [native-0926] release master get verified by release pipeline
+  ✅ [native-0926] release self-test verified by release pipeline
+  ✅ [native-0926] release aircheck verified by release pipeline
+  ✅ [native-0926] release stream verified by release pipeline
+  ✅ [native-0926] release aircheck in BOTH verify passes (build + bundled payload)
+  ✅ [native-0926] release stream in BOTH verify passes (build + bundled payload)
+  ✅ [native-0926] release both .pyd bundled into the installer payload
+
+=== Summary: wasapi ===
+561/561 passed — all green ✅

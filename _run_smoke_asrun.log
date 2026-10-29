@@ -1,0 +1,37 @@
+as-run: cannot append to 2026-10-26.jsonl: [WinError 183] Cannot create a file when that file already exists: 'C:\\Users\\SOCIET~1\\AppData\\Local\\Temp\\asrun_bad_3kcm6d7t\\not_a_dir'
+invalid command name "2076080889408update"
+    while executing
+"2076080889408update"
+    ("after" script)
+invalid command name "2076061101632<lambda>"
+    while executing
+"2076061101632<lambda>"
+    ("after" script)
+invalid command name "2075984492160<lambda>"
+    while executing
+"2075984492160<lambda>"
+    ("after" script)
+invalid command name "2076060285760check_dpi_scaling"
+    while executing
+"2076060285760check_dpi_scaling"
+    ("after" script)
+invalid command name "2076060906688_tick"
+    while executing
+"2076060906688_tick"
+    ("after" script)
+invalid command name "2076061181376_start_progress_timer"
+    while executing
+"2076061181376_start_progress_timer"
+    ("after" script)
+invalid command name "2076083070912destroy"
+    while executing
+"2076083070912destroy"
+    ("after" script)
+invalid command name "2076061034944destroy"
+    while executing
+"2076061034944destroy"
+    ("after" script)
+invalid command name "2076084817280destroy"
+    while executing
+"2076084817280destroy"
+    ("after" script)
